@@ -36,8 +36,7 @@ model Company {
   name                    String                 @unique
   photoUrl                String?
   code                    String?  
-  address                 String?            
-  password                String?
+  address                 String?   
   phone                   String? 
   userCompanyRelationship UserCompanyRelationship[]   
 }
