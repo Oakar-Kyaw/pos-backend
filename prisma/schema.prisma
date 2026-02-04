@@ -73,5 +73,6 @@ enum Gender {
 
 enum Role {
   CUSTOMER
+  POS
   ADMIN
 }
