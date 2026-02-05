@@ -6,6 +6,7 @@ import {
 import { PrismaService } from 'prisma/prisma.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
+import { hashedPassword } from 'src/utils/hash-password';
 
 @Injectable()
 export class CompanyService {
@@ -31,12 +32,31 @@ export class CompanyService {
         'Company with this email, name, or phone already exists',
       );
     }
-
+    const { password, ...data } = createCompanyDto;
+    const hashPassword = await hashedPassword(password);
+    console.log('before');
     const company = await this.prisma.company.create({
       data: {
-        ...createCompanyDto,
+        ...data,
       },
     });
+    console.log('compan', company);
+    const user = await this.prisma.user.create({
+      data: {
+        email: company.email,
+        password: hashPassword,
+        phone: company.phone,
+        role: 'POS',
+      },
+    });
+    console.log('user is ', user);
+    const userCompanyRelationship =
+      await this.prisma.userCompanyRelationship.create({
+        data: {
+          userId: Number(user.id),
+          companyId: Number(company.id),
+        },
+      });
 
     return {
       success: true,

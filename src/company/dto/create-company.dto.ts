@@ -27,6 +27,12 @@ export class CreateCompanyDto {
   readonly email: string;
 
   @Expose()
+  @IsNotEmpty()
+  @IsString()
+  @Transform(({ value }) => (value ? String(value).trim().toLowerCase() : null))
+  password: string;
+
+  @Expose()
   @IsOptional()
   @IsString()
   @Transform(({ value }) => (value ? String(value).trim() : null))
