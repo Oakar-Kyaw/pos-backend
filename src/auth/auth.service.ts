@@ -369,7 +369,7 @@ export class AuthService {
   async encryptedData(payload) {
     const access_token = await this.jwtService.signAsync(payload);
     const refresh_token = await this.jwtService.signAsync(payload, {
-      secret: process.env.JWTSECRET,
+      secret: process.env.JWTREFRESH,
       expiresIn: '7d',
     });
 
