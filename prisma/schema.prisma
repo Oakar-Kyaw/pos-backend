@@ -28,6 +28,7 @@ model User {
   dateOfBirth             DateTime?
   device_infos            DeviceInfo[]
   userCompanyRelationship UserCompanyRelationship[]
+  category                Category[]             @relation("categorybyuser")
 }
 
 model Company {
@@ -47,6 +48,14 @@ model UserCompanyRelationship {
   company                 Company               @relation(fields:[companyId], references: [id])
   userId                  Int 
   user                    User                  @relation(fields:[userId], references: [id])
+}
+
+model Category {
+  id                      Int                    @id @default(autoincrement())
+  isDeleted               Boolean                @default(false)
+  title                   String                 @unique
+  userId                  Int
+  user                    User                   @relation("categorybyuser", fields:[userId], references: [id], onDelete: Cascade)
 }
 
 model DeviceInfo {

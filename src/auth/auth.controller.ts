@@ -11,13 +11,14 @@ import { AuthService } from './auth.service';
 //import { LoginDto } from './dto/login.dto';
 //import { LoginResponseDto } from './dto/login-response.dto';
 import { LoginDto } from './dto/login.dto';
+import { Public } from 'src/utils/public';
 
 @Controller('api/auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @HttpCode(HttpStatus.OK)
-  // @Public()
+  @Public()
   @Post('login')
   login(@Body() data: LoginDto) {
     console.log('log', data);
