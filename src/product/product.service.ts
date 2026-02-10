@@ -1,26 +1,158 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { PrismaService } from 'prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 
 @Injectable()
 export class ProductService {
-  create(createProductDto: CreateProductDto) {
-    return 'This action adds a new product';
+  constructor(private readonly prisma: PrismaService) {}
+
+  // CREATE
+  async create(dto: CreateProductDto, userId: number, photoUrl?: string) {
+    try {
+      console.log('dto is ', dto);
+      const product = await this.prisma.product.create({
+        data: {
+          name: dto.name,
+          code: dto.code,
+          barcode: dto.barcode,
+          description: dto.description,
+          price: Number(dto.price),
+          costPrice: Number(dto.costPrice),
+          stock: Number(dto.stock) ?? 0,
+          minStock: Number(dto.minStock),
+          categoryId: Number(dto.categoryId),
+          userId: Number(userId),
+          companyId: Number(dto.companyId),
+          ...{ photoUrl },
+        },
+      });
+
+      return {
+        success: true,
+        message: 'Product created successfully',
+        data: product,
+      };
+    } catch (error) {
+      console.log('error: ', error);
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        return {
+          success: false,
+          message: 'Product code or barcode already exists',
+          data: null,
+        };
+      }
+
+      throw new ForbiddenException('Unable to create product');
+    }
   }
 
-  findAll() {
-    return `This action returns all product`;
+  // FIND ALL + SEARCH
+  async findAll(userId: number, search?: string) {
+    const products = await this.prisma.product.findMany({
+      where: {
+        userId,
+        isDeleted: false,
+        ...(search && {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { code: { contains: search, mode: 'insensitive' } },
+            { barcode: { contains: search, mode: 'insensitive' } },
+          ],
+        }),
+      },
+      include: {
+        category: true,
+      },
+      orderBy: { id: 'desc' },
+    });
+
+    return {
+      success: true,
+      message: 'Products fetched successfully',
+      data: products,
+    };
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} product`;
+  // FIND ONE
+  async findOne(id: number, userId: number) {
+    const product = await this.prisma.product.findFirst({
+      where: {
+        id,
+        userId,
+        isDeleted: false,
+      },
+      include: {
+        category: true,
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundException({
+        success: false,
+        message: 'Product not found',
+        data: null,
+      });
+    }
+
+    return {
+      success: true,
+      message: 'Product fetched successfully',
+      data: product,
+    };
   }
 
-  update(id: number, updateProductDto: UpdateProductDto) {
-    return `This action updates a #${id} product`;
+  // UPDATE
+  async update(id: number, dto: UpdateProductDto, userId: number) {
+    await this.findOne(id, userId);
+
+    const updated = await this.prisma.product.update({
+      where: { id },
+      data: {
+        name: dto.name,
+        code: dto.code,
+        barcode: dto.barcode,
+        description: dto.description,
+        price: dto.price,
+        costPrice: dto.costPrice,
+        stock: dto.stock,
+        minStock: dto.minStock,
+        categoryId: dto.categoryId,
+        isActive: dto.isActive,
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Product updated successfully',
+      data: updated,
+    };
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} product`;
+  // DELETE (SOFT DELETE)
+  async remove(id: number, userId: number) {
+    await this.findOne(id, userId);
+
+    const deleted = await this.prisma.product.update({
+      where: { id },
+      data: {
+        isDeleted: true,
+        isActive: false,
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Product deleted successfully',
+      data: deleted,
+    };
   }
 }

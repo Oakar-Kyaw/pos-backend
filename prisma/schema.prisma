@@ -44,6 +44,7 @@ model Company {
 
   products Product[]      @relation("productByCompany")
   userCompanyRelationship UserCompanyRelationship[]
+  currencies  Currency[]  @relation("companycurrency") 
 }
 
 model Category {
@@ -64,6 +65,7 @@ model Product {
   code        String   @unique
   barcode     String? 
   description String?
+  photoUrl    String?
 
   price       Decimal  @db.Decimal(10,2)
   costPrice   Decimal? @db.Decimal(10,2)
@@ -87,6 +89,16 @@ model Product {
   updatedAt   DateTime @updatedAt
 
   @@index([name])
+}
+
+model Currency {
+  id              Int      @id @default(autoincrement())
+  currencyCode    String   @unique
+  value           Int      @default(1)
+  setDefault      Boolean  @default(false)
+  currencySymbol  String 
+  companyId       Int
+  company         Company  @relation("companycurrency", fields:[companyId], references: [id])         
 }
 
 model DeviceInfo {
@@ -113,6 +125,7 @@ enum Gender {
 
 enum Role {
   CUSTOMER
+  SALE
   POS
   ADMIN
   SUPERADMIN
