@@ -13,33 +13,89 @@ datasource db {
 }
 
 model User {
-  id                      Int                    @id @default(autoincrement())
-  email                   String                 @unique
-  role                    Role                   @default(CUSTOMER)
-  photoUrl                String?
-  firstName               String?  
-  lastName                String?            
-  password                String?
-  phone                   String?      
-  gender                  Gender                 @default(MALE)
-  createdAt               DateTime               @default(now())
-  updatedAt               DateTime               @updatedAt
-  isDeleted               Boolean                @default(false)
-  dateOfBirth             DateTime?
-  device_infos            DeviceInfo[]
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  role      Role     @default(CUSTOMER)
+
+  firstName String?
+  lastName  String?
+  password  String?
+  phone     String?
+  photoUrl  String?
+
+  gender    Gender   @default(MALE)
+  isDeleted Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  categories Category[]    @relation("categories")
+  products   Product[]     @relation("product")
   userCompanyRelationship UserCompanyRelationship[]
-  category                Category[]             @relation("categorybyuser")
 }
 
 model Company {
-  id                      Int                    @id @default(autoincrement())
-  email                   String                 @unique
-  name                    String                 @unique
-  photoUrl                String?
-  code                    String?  
-  address                 String?   
-  phone                   String? 
-  userCompanyRelationship UserCompanyRelationship[]   
+  id      Int    @id @default(autoincrement())
+  code    String?
+  email   String @unique
+  name    String @unique
+  phone   String?
+  address String?
+
+  products Product[]      @relation("productByCompany")
+  userCompanyRelationship UserCompanyRelationship[]
+}
+
+model Category {
+  id        Int      @id @default(autoincrement())
+  title     String
+  isDeleted Boolean  @default(false)
+
+  userId    Int
+  user      User     @relation("categories", fields: [userId], references: [id], onDelete: Cascade)
+
+  products  Product[] @relation("productByCategories")
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+
+  name        String
+  code        String   @unique
+  barcode     String? 
+  description String?
+
+  price       Decimal  @db.Decimal(10,2)
+  costPrice   Decimal? @db.Decimal(10,2)
+
+  stock       Int      @default(0)
+  minStock    Int?
+
+  isActive    Boolean  @default(true)
+  isDeleted   Boolean  @default(false)
+
+  categoryId  Int
+  category    Category @relation("productByCategories",fields: [categoryId], references: [id])
+
+  userId      Int
+  user        User     @relation("product",fields: [userId], references: [id])
+
+  companyId   Int
+  company     Company  @relation("productByCompany", fields: [companyId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([name])
+}
+
+model DeviceInfo {
+  id          Int      @id @default(autoincrement())
+  deviceToken String   @unique
+  deviceType  String?
+  deviceName  String?
+  ipAddress   String?
+  lastActive  DateTime @default(now())
 }
 
 model UserCompanyRelationship {
@@ -48,30 +104,6 @@ model UserCompanyRelationship {
   company                 Company               @relation(fields:[companyId], references: [id])
   userId                  Int 
   user                    User                  @relation(fields:[userId], references: [id])
-}
-
-model Category {
-  id                      Int                    @id @default(autoincrement())
-  isDeleted               Boolean                @default(false)
-  title                   String                 @unique
-  userId                  Int
-  user                    User                   @relation("categorybyuser", fields:[userId], references: [id], onDelete: Cascade)
-}
-
-model DeviceInfo {
-  id          Int      @id @default(autoincrement())
-  userId      Int?
-  user        User?     @relation(fields: [userId], references: [id])
-  email       String?
-  deviceToken String   @unique
-  deviceType  String?
-  deviceName  String?
-  ipAddress   String?
-  latitude    Float?
-  longitude   Float?
-  location    String?
-  lastActive  DateTime @default(now())
-  createdAt   DateTime @default(now())
 }
 
 enum Gender {
@@ -83,4 +115,5 @@ enum Role {
   CUSTOMER
   POS
   ADMIN
+  SUPERADMIN
 }
