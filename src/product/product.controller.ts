@@ -9,6 +9,7 @@ import {
   Req,
   UseInterceptors,
   UploadedFile,
+  Query,
 } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -36,10 +37,20 @@ export class ProductController {
   }
 
   @Get()
-  findAll(@Req() req) {
+  findAll(
+    @Req() req,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+    @Query('search') search?: string,
+  ) {
     const { id: userId } = req.user;
 
-    return this.productService.findAll(userId);
+    return this.productService.findAll(
+      userId,
+      Number(page),
+      Number(limit),
+      search,
+    );
   }
 
   @Get(':id')

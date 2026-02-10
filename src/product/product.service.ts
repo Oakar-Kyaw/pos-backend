@@ -56,29 +56,44 @@ export class ProductService {
   }
 
   // FIND ALL + SEARCH
-  async findAll(userId: number, search?: string) {
-    const products = await this.prisma.product.findMany({
-      where: {
-        userId,
-        isDeleted: false,
-        ...(search && {
-          OR: [
-            { name: { contains: search, mode: 'insensitive' } },
-            { code: { contains: search, mode: 'insensitive' } },
-            { barcode: { contains: search, mode: 'insensitive' } },
-          ],
-        }),
-      },
-      include: {
-        category: true,
-      },
-      orderBy: { id: 'desc' },
-    });
+  async findAll(userId: number, page = 1, limit = 10, search?: string) {
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.ProductWhereInput = {
+      userId,
+      isDeleted: false,
+      ...(search && {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { code: { contains: search, mode: 'insensitive' } },
+          { barcode: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+    };
+
+    const [products, total] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        include: {
+          category: true,
+        },
+        orderBy: { id: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.product.count({ where }),
+    ]);
 
     return {
       success: true,
       message: 'Products fetched successfully',
       data: products,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 
