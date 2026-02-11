@@ -84,10 +84,4 @@ export class CreateProductDto {
   @IsInt()
   @Type(() => Number)
   readonly categoryId: number;
-
-  @Expose()
-  @IsNotEmpty()
-  @IsInt()
-  @Type(() => Number)
-  readonly companyId: number;
 }

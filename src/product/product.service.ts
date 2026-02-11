@@ -13,9 +13,14 @@ export class ProductService {
   constructor(private readonly prisma: PrismaService) {}
 
   // CREATE
-  async create(dto: CreateProductDto, userId: number, photoUrl?: string) {
+  async create(
+    dto: CreateProductDto,
+    userId: number,
+    companyId: number,
+    photoUrl?: string,
+  ) {
     try {
-      console.log('dto is ', dto);
+      // console.log('dto is ', dto, companyId);
       const product = await this.prisma.product.create({
         data: {
           name: dto.name,
@@ -28,7 +33,7 @@ export class ProductService {
           minStock: Number(dto.minStock),
           categoryId: Number(dto.categoryId),
           userId: Number(userId),
-          companyId: Number(dto.companyId),
+          companyId: Number(companyId),
           ...{ photoUrl },
         },
       });

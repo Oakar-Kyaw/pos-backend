@@ -31,9 +31,15 @@ export class ProductController {
     @Body() createProductDto: CreateProductDto,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    const { id: userId } = req.user;
+    //console.log('req.user ', req.user);
+    const { id: userId, companyId: companyId } = req.user;
     const imageUrl = await this.uploader.uploadPhoto(file);
-    return this.productService.create(createProductDto, userId, imageUrl);
+    return this.productService.create(
+      createProductDto,
+      userId,
+      companyId,
+      imageUrl,
+    );
   }
 
   @Get()
