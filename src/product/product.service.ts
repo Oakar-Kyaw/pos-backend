@@ -75,6 +75,24 @@ export class ProductService {
         ],
       }),
     };
+    // If search → return all matches (no pagination)
+    if (search) {
+      const products = await this.prisma.product.findMany({
+        where,
+        include: { category: true },
+        orderBy: { id: 'desc' },
+      });
+
+      return {
+        success: true,
+        message: 'Products fetched successfully',
+        data: products,
+        meta: {
+          total: products.length,
+          isSearch: true,
+        },
+      };
+    }
 
     const [products, total] = await Promise.all([
       this.prisma.product.findMany({
