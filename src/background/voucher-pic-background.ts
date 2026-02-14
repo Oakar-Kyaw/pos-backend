@@ -26,24 +26,32 @@ export class VoucherPhotoConsumer extends WorkerHost {
         buffer,
         originalname,
       } as Express.Multer.File;
-      const url = await this.uploadFile.uploadPhoto(fakeFile, {
-        folderName: 'vouchers',
-      });
-      photoUrls.push(url);
-      await fs.unlink(temp).catch(() => {
-        console.warn("Can't delete file");
-      });
-    }
-    // Save photo URLs to DB
-    await this.prisma.paymentPhoto.createMany({
-      data: photoUrls.map((url) => ({
-        voucherId,
-        photoUrl: url,
-      })),
-    });
 
-    console.log(
-      `✅ Uploaded ${photoUrls.length} photos for voucher ${voucherId}`,
-    );
+      try {
+        const url = await this.uploadFile.uploadPhoto(fakeFile, {
+          folderName: 'vouchers',
+        });
+        photoUrls.push(url);
+      } catch (err) {
+        console.error(`Failed to upload file ${temp}:`, err);
+      } finally {
+        // ✅ Always clean up temp file, even on failure
+        await fs
+          .unlink(temp)
+          .catch(() => console.warn(`Could not delete temp file: ${temp}`));
+      }
+      // Save photo URLs to DB
+      await this.prisma.paymentPhoto.createMany({
+        data: photoUrls.map((url) => ({
+          voucherId,
+          photoUrl: url,
+        })),
+      });
+
+      console.log(
+        `✅ Uploaded ${photoUrls.length} photos for voucher ${voucherId}`,
+      );
+      return;
+    }
   }
 }
