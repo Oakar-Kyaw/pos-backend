@@ -32,6 +32,7 @@ model User {
   categories Category[]    @relation("categories")
   products   Product[]     @relation("product")
   userCompanyRelationship UserCompanyRelationship[]
+  vouchers   Voucher[]
 }
 
 model Company {
@@ -45,6 +46,7 @@ model Company {
   products Product[]      @relation("productByCompany")
   userCompanyRelationship UserCompanyRelationship[]
   currencies  Currency[]  @relation("companycurrency") 
+  vouchers   Voucher[]
 }
 
 model Category {
@@ -91,6 +93,78 @@ model Product {
   @@index([name])
 }
 
+model Voucher {
+  id        Int      @id @default(autoincrement())
+  voucherCode String @unique
+  type      VoucherType @default(DRAFT)
+  subTotal  Float    @default(0)
+  tax       Float    @default(0)
+  total     Float    @default(0)
+  note      String?
+  isDeleted Boolean  @default(false)
+
+  items     VoucherItem[]  
+
+  payments   Payment[]
+
+  userId    Int 
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  companyId    Int 
+  company      Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model VoucherItem {
+  id         Int     @id @default(autoincrement())
+
+  voucher    Voucher @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  voucherId  Int
+
+  itemId     Int
+  name       String
+  photoUrl   String?
+  quantity   Int     @default(0)
+  price      Float   @default(0)
+
+  createdAt  DateTime @default(now())
+}
+
+model Payment {
+  id         Int         @id @default(autoincrement())
+
+  voucher    Voucher     @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  voucherId  Int
+
+  paymentData   PaymentData @relation(fields: [paymentDataId], references: [id])
+  paymentDataId Int
+
+  amount     Float
+
+  createdAt  DateTime    @default(now())
+}
+
+model PaymentData {
+  id            Int         @id @default(autoincrement())
+
+  name          String      // Account display name (ABA Bank, Visa Card, Cash Drawer)
+  accountNumber String?
+  accountName   String
+  accountType   AccountType
+
+  companyId     Int
+  userId        Int
+
+  isActive      Boolean     @default(true)
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  payments      Payment[]   // relation (optional)
+}
+
+
 model Currency {
   id              Int      @id @default(autoincrement())
   currencyCode    String   @unique
@@ -121,6 +195,25 @@ model UserCompanyRelationship {
 enum Gender {
   MALE
   FEMALE
+}
+
+enum VoucherType {
+  SAVE
+  DRAFT
+}
+
+enum PaymentType {
+  CASH
+  BANK
+  CARD
+  EWALLET
+}
+
+enum AccountType {
+  CASH
+  BANK
+  CARD
+  EWALLET
 }
 
 enum Role {
