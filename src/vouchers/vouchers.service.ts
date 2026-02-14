@@ -7,15 +7,28 @@ import { PrismaService } from 'prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { CreateVoucherDto } from './dto/create-voucher.dto';
 import { UpdateVoucherDto } from './dto/update-voucher.dto';
+import { FileUpload } from 'src/utils/file-upload';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import sharp from 'sharp';
 
 @Injectable()
 export class VouchersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @InjectQueue('voucher-photos') private voucherPhotoQueue: Queue,
+    readonly uploadFile: FileUpload,
+  ) {}
 
   // ================= CREATE =================
-  async create(dto: CreateVoucherDto, userId: number, companyId: number) {
+  async create(
+    dto: CreateVoucherDto,
+    userId: number,
+    companyId: number,
+    files: Express.Multer.File[],
+  ) {
     try {
-      console.log('dto is: ', dto);
+      //console.log('dto is: ', dto);
       // 🔥 calculate totals securely (do NOT trust frontend)
       const subTotal = dto.items.reduce(
         (sum, item) => sum + item.price * item.quantity,
@@ -23,7 +36,8 @@ export class VouchersService {
       );
 
       const tax = dto?.tax ?? 0; // example 10% tax
-      const total = subTotal + tax;
+      const deliveryFee = dto?.deliveryFee ?? 0;
+      const total = subTotal + tax + deliveryFee;
       const voucherCode = await this.generateVoucherCode(companyId, dto.type);
       const voucher = await this.prisma.$transaction(async (tx) => {
         const createdVoucher = await tx.voucher.create({
@@ -33,6 +47,7 @@ export class VouchersService {
             note: dto.note,
             subTotal,
             tax,
+            deliveryFee,
             total,
             userId,
             companyId,
@@ -50,8 +65,34 @@ export class VouchersService {
           })),
         });
 
+        await tx.payment.createMany({
+          data: dto.payments.map((payData) => ({
+            voucherId: createdVoucher.id,
+            paymentDataId: payData.paymentDataId,
+            amount: payData.amount,
+            type: payData.type,
+          })),
+        });
+
         return createdVoucher;
       });
+
+      //send photo to background work
+      if (files.length > 0) {
+        console.log('files ', files);
+        await this.voucherPhotoQueue.add(
+          'upload-photos',
+          {
+            voucherId: voucher.id,
+            tempPaths: files.map((f) => f.path),
+          },
+          {
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 3000 },
+            removeOnComplete: true,
+          },
+        );
+      }
 
       return {
         success: true,
@@ -89,7 +130,14 @@ export class VouchersService {
     if (search) {
       const vouchers = await this.prisma.voucher.findMany({
         where,
-        include: { items: true },
+        include: {
+          items: true,
+          payments: {
+            include: {
+              paymentData: true,
+            },
+          },
+        },
         orderBy: { id: 'desc' },
       });
 
@@ -107,7 +155,15 @@ export class VouchersService {
     const [vouchers, total] = await Promise.all([
       this.prisma.voucher.findMany({
         where,
-        include: { items: true },
+        include: {
+          items: true,
+          paymentPhotos: true,
+          payments: {
+            include: {
+              paymentData: true,
+            },
+          },
+        },
         orderBy: { id: 'desc' },
         skip,
         take: limit,

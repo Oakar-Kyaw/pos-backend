@@ -33,7 +33,9 @@ export class ProductController {
   ) {
     //console.log('req.user ', req.user);
     const { id: userId, companyId: companyId } = req.user;
-    const imageUrl = await this.uploader.uploadPhoto(file);
+    const imageUrl = await this.uploader.uploadPhoto(file, {
+      folderName: 'products',
+    });
     return this.productService.create(
       createProductDto,
       userId,

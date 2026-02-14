@@ -99,6 +99,7 @@ model Voucher {
   type      VoucherType @default(DRAFT)
   subTotal  Float    @default(0)
   tax       Float    @default(0)
+  deliveryFee Float  @default(0)
   total     Float    @default(0)
   note      String?
   isDeleted Boolean  @default(false)
@@ -106,6 +107,8 @@ model Voucher {
   items     VoucherItem[]  
 
   payments   Payment[]
+
+  paymentPhotos PaymentPhoto[]
 
   userId    Int 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -141,6 +144,18 @@ model Payment {
   paymentDataId Int
 
   amount     Float
+  type       PaymentType  @default(CASH)
+
+  createdAt  DateTime    @default(now())
+}
+
+model PaymentPhoto {
+  id         Int         @id @default(autoincrement())
+
+  voucher    Voucher     @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  voucherId  Int
+
+  photoUrl   String
 
   createdAt  DateTime    @default(now())
 }

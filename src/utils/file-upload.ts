@@ -26,10 +26,13 @@ export class FileUpload {
     });
   }
 
-  async uploadPhoto(file: Express.Multer.File): Promise<string> {
+  async uploadPhoto(
+    file: Express.Multer.File,
+    { folderName }: { folderName?: String },
+  ): Promise<string> {
     const optimized = await sharp(file.buffer).webp({ quality: 90 }).toBuffer();
-
-    const fileName = `products/${Date.now()}-${file.originalname}.webp`;
+    const folder = folderName ?? 'products';
+    const fileName = `${folder}/${Date.now()}-${file.originalname}.webp`;
     await this.r2.send(
       new PutObjectCommand({
         Bucket: process.env.CLOUDFLARE_R2_BUCKET!,

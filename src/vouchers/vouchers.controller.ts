@@ -8,10 +8,14 @@ import {
   Delete,
   Req,
   Query,
+  UseInterceptors,
+  UploadedFiles,
 } from '@nestjs/common';
 import { VouchersService } from './vouchers.service';
 import { CreateVoucherDto } from './dto/create-voucher.dto';
 import { UpdateVoucherDto } from './dto/update-voucher.dto';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { multerConfig } from 'src/utils/multer-config';
 
 @Controller('api/v1/vouchers')
 export class VouchersController {
@@ -19,10 +23,20 @@ export class VouchersController {
 
   // ================= CREATE =================
   @Post()
-  async create(@Req() req, @Body() createVoucherDto: CreateVoucherDto) {
+  @UseInterceptors(FilesInterceptor('files', 4, multerConfig))
+  async create(
+    @Req() req,
+    @Body() createVoucherDto: CreateVoucherDto,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
     const { id: userId, companyId } = req.user;
 
-    return this.vouchersService.create(createVoucherDto, userId, companyId);
+    return this.vouchersService.create(
+      createVoucherDto,
+      userId,
+      companyId,
+      files,
+    );
   }
 
   // ================= FIND ALL =================

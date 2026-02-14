@@ -10,6 +10,8 @@ import {
 } from 'class-validator';
 import { CreateVoucherItemDto } from './create-voucher-item.dto';
 import { VoucherType } from '@prisma/client';
+import { CreatePaymentDto } from 'src/payment/dto/create-payment.dto';
+import { VoucherPaymentDto } from './payment-voucher.dto';
 
 export class CreateVoucherDto {
   // ===== Basic Info =====
@@ -45,6 +47,13 @@ export class CreateVoucherDto {
   @IsNumber()
   @Type(() => Number)
   @Min(0)
+  readonly deliveryFee?: number;
+
+  @Expose()
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  @Min(0)
   readonly total?: number;
 
   // ===== Items =====
@@ -63,4 +72,20 @@ export class CreateVoucherDto {
     return value;
   })
   readonly items: CreateVoucherItemDto[];
+
+  @Expose()
+  @IsArray()
+  @Type(() => VoucherPaymentDto)
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        //  console.log('value is ', value, typeof value);
+        return JSON.parse(value);
+      } catch (e) {
+        return [];
+      }
+    }
+    return value;
+  })
+  readonly payments: VoucherPaymentDto[];
 }
