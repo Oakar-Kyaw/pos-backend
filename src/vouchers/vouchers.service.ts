@@ -30,10 +30,10 @@ export class VouchersService {
     try {
       //console.log('dto is: ', dto);
       // 🔥 calculate totals securely (do NOT trust frontend)
-      const subTotal =
-        dto.items.reduce((sum, item) => sum + item.price * item.quantity, 0) +
-        (dto.deliveryFee ?? 0) +
-        (dto.tax ?? 0);
+      const subTotal = dto.items.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0,
+      );
 
       const tax = dto?.tax ?? 0; // example 10% tax
       const deliveryFee = dto?.deliveryFee ?? 0;
@@ -197,7 +197,11 @@ export class VouchersService {
       },
       include: {
         items: true,
-        payments: true,
+        payments: {
+          include: {
+            paymentData: true,
+          },
+        },
         company: true,
         paymentPhotos: true,
       },
