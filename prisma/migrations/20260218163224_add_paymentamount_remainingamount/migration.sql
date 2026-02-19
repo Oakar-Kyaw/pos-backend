@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Voucher" ADD COLUMN     "remainingPaymentAmount" DOUBLE PRECISION NOT NULL DEFAULT 0,
+ADD COLUMN     "totalPaymentAmount" DOUBLE PRECISION NOT NULL DEFAULT 0;

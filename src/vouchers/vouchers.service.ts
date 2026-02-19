@@ -30,10 +30,10 @@ export class VouchersService {
     try {
       //console.log('dto is: ', dto);
       // 🔥 calculate totals securely (do NOT trust frontend)
-      const subTotal = dto.items.reduce(
-        (sum, item) => sum + item.price * item.quantity,
-        0,
-      );
+      const subTotal =
+        dto.items.reduce((sum, item) => sum + item.price * item.quantity, 0) +
+        (dto.deliveryFee ?? 0) +
+        (dto.tax ?? 0);
 
       const tax = dto?.tax ?? 0; // example 10% tax
       const deliveryFee = dto?.deliveryFee ?? 0;
@@ -48,6 +48,8 @@ export class VouchersService {
             subTotal,
             tax,
             deliveryFee,
+            totalPaymentAmount: dto.totalPaymentAmount,
+            remainingPaymentAmount: dto.remainingPaymentAmount,
             total,
             userId,
             companyId,
@@ -195,6 +197,9 @@ export class VouchersService {
       },
       include: {
         items: true,
+        payments: true,
+        company: true,
+        paymentPhotos: true,
       },
     });
 
@@ -205,7 +210,7 @@ export class VouchersService {
         data: null,
       });
     }
-
+    console.log('voucher ', voucher);
     return {
       success: true,
       message: 'Voucher fetched successfully',

@@ -42,6 +42,7 @@ model Company {
   name    String @unique
   phone   String?
   address String?
+  photoUrl String?
 
   products Product[]      @relation("productByCompany")
   userCompanyRelationship UserCompanyRelationship[]
@@ -100,6 +101,8 @@ model Voucher {
   subTotal  Float    @default(0)
   tax       Float    @default(0)
   deliveryFee Float  @default(0)
+  totalPaymentAmount Float  @default(0)
+  remainingPaymentAmount Float  @default(0)
   total     Float    @default(0)
   note      String?
   isDeleted Boolean  @default(false)
