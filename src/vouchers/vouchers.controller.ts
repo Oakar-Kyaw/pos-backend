@@ -29,12 +29,13 @@ export class VouchersController {
     @Body() createVoucherDto: CreateVoucherDto,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
-    const { id: userId, companyId } = req.user;
+    const { id: userId, companyId, branchId } = req.user;
 
     return this.vouchersService.create(
       createVoucherDto,
       userId,
       companyId,
+      branchId,
       files,
     );
   }
@@ -47,11 +48,12 @@ export class VouchersController {
     @Query('limit') limit = '10',
     @Query('search') search?: string,
   ) {
-    const { id: userId, companyId } = req.user;
+    const { id: userId, companyId, branchId } = req.user;
 
     return this.vouchersService.findAll(
       userId,
       companyId,
+      branchId,
       Number(page),
       Number(limit),
       search,

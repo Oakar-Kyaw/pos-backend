@@ -186,6 +186,7 @@ export class AuthService {
       phone: data.phone,
       role: data.role,
       companyId: companyIdByUser?.id ?? null,
+      brandId: data.branchId,
     });
 
     console.log('✅ New access token generated successfully');

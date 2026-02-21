@@ -25,6 +25,7 @@ export class VouchersService {
     dto: CreateVoucherDto,
     userId: number,
     companyId: number,
+    branchId: number,
     files: Express.Multer.File[],
   ) {
     try {
@@ -53,6 +54,7 @@ export class VouchersService {
             total,
             userId,
             companyId,
+            branchId,
           },
         });
 
@@ -111,15 +113,18 @@ export class VouchersService {
   async findAll(
     userId: number,
     companyId: number,
-    page = 1,
+    branchId: number,
+    pageNumber = 1,
     limit = 10,
     search?: string,
   ) {
+    const page = pageNumber < 1 ? 1 : pageNumber; // ensure minimum 1
     const skip = (page - 1) * limit;
 
     const where: Prisma.VoucherWhereInput = {
       userId,
       companyId,
+      ...{ branchId },
       isDeleted: false,
       ...(search && {
         OR: [
@@ -160,6 +165,15 @@ export class VouchersService {
         include: {
           items: true,
           paymentPhotos: true,
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+              email: true,
+            },
+          },
           payments: {
             include: {
               paymentData: true,

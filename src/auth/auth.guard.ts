@@ -34,9 +34,9 @@ export class AuthGuard implements CanActivate {
       if (!token) {
         throw new ForbiddenException('Invalid authorization format');
       }
-      const { id, email, role, companyId } =
+      const { id, email, role, companyId, branchId } =
         await this.verifyAccessToken(token);
-      request.user = { id, email, role, companyId };
+      request.user = { id, email, role, companyId, branchId };
 
       return true;
     }
@@ -51,7 +51,7 @@ export class AuthGuard implements CanActivate {
       });
 
       // destructure the payload
-      const { id, email, phone, role, companyId } = payload;
+      const { id, email, phone, role, companyId, branchId } = payload;
 
       console.log('🎫 User ID:', id);
       console.log('📧 Email:', email);
@@ -59,7 +59,7 @@ export class AuthGuard implements CanActivate {
       console.log('👤 Role:', role);
       console.log('🧚 companyId: ', companyId);
 
-      return { id, email, phone, role, companyId };
+      return { id, email, phone, role, companyId, branchId };
     } catch (err) {
       throw new ForbiddenException('Invalid token');
     }
