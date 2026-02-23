@@ -11,8 +11,28 @@ export class IncomeService {
     return 'This action adds a new income';
   }
 
-  async findAll(userId: number, companyId: number, branchId: number) {
-    const now = new Date();
+  async findAll(
+    userId: number,
+    companyId: number,
+    branchId: number,
+    date?: string,
+  ) {
+    const now = date ? new Date(date) : new Date();
+    const startOfDay = new Date(
+      Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0),
+    );
+    const endOfDay = new Date(
+      Date.UTC(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        23,
+        59,
+        59,
+        999,
+      ),
+    );
+    console.log('now', now, endOfDay);
     const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startYear = new Date(now.getFullYear(), 0, 1);
     const endYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
@@ -36,6 +56,13 @@ export class IncomeService {
       branchId,
       startYear,
       endYear,
+    );
+
+    const getTodaySale = await this.getTotalByDateAndBranchAndCompany(
+      companyId,
+      branchId,
+      startOfDay,
+      endOfDay,
     );
 
     const mostSellingItem = await this.mostSellingItem(
@@ -79,6 +106,7 @@ export class IncomeService {
         leastSellingItem,
         getMonthByMonth,
         getMonthlyTopSaleUser,
+        getTodaySale: getTodaySale[0],
       },
     };
   }
