@@ -190,6 +190,7 @@ export class IncomeService {
     startDate?: Date,
     endDate?: Date,
   ) {
+    console.log('sdate is ', startDate, endDate, companyId);
     const result: {
       itemId: number;
       name: string;
@@ -199,22 +200,28 @@ export class IncomeService {
       SELECT
         p."id" AS itemId,
         p."name",
-        COALESCE(SUM(vi."quantity"), 0) AS "totalQuantity"
+        COALESCE(SUM(
+          CASE 
+            WHEN v."id" IS NOT NULL
+              ${branchId ? Prisma.sql`AND v."branchId" = ${branchId}` : Prisma.empty}
+              ${startDate ? Prisma.sql`AND v."createdAt" >= ${startDate}` : Prisma.empty}
+              ${endDate ? Prisma.sql`AND v."createdAt" < ${endDate}` : Prisma.empty}
+            THEN  vi."quantity"
+            ELSE 0
+          END
+        ), 0) AS "totalQuantity"
       FROM "Product" p
       LEFT JOIN "VoucherItem" vi
           ON p."id" = vi."itemId"
       LEFT JOIN "Voucher" v ON vi."voucherId" = v."id"
         AND v."isDeleted" = false
-        ${branchId ? Prisma.sql`AND v."branchId" = ${branchId}` : Prisma.empty}
-        ${startDate ? Prisma.sql`AND v."createdAt" >= ${startDate}` : Prisma.empty}
-        ${endDate ? Prisma.sql`AND v."createdAt" < ${endDate}` : Prisma.empty}
       WHERE p."companyId" = ${companyId}
       GROUP BY p."id", p."name"
       ORDER BY "totalQuantity" ASC
       LIMIT 10
     `,
     );
-
+    console.log(result);
     // Convert BigInt → number
     return result.map((item) => ({
       ...item,
