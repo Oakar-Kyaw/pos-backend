@@ -13,6 +13,7 @@ import { BullModule, InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { IncomeModule } from './income/income.module';
 import { SaleReportModule } from './sale-report/sale-report.module';
+import { GeneralExpenseModule } from './general-expense/general-expense.module';
 
 const redisUrl = new URL(process.env.REDIS_URL!);
 const redisConnection = {
@@ -48,6 +49,7 @@ const redisConnection = {
     BullModule.registerQueue({ name: 'voucher-photos' }),
     IncomeModule,
     SaleReportModule,
+    GeneralExpenseModule,
   ],
   controllers: [AppController],
   providers: [AppService],
