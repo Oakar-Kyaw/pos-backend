@@ -5,16 +5,11 @@ import {
   IsString,
   IsEnum,
   IsBoolean,
+  IsNumber,
 } from 'class-validator';
 import { AccountType } from '@prisma/client';
 
 export class CreatePaymentDataDto {
-  // ===== Basic Info =====
-  @Expose()
-  @IsNotEmpty()
-  @IsString()
-  readonly name: string; // Display name, e.g., "ABA Bank", "Cash Drawer"
-
   @Expose()
   @IsNotEmpty()
   @IsString()
@@ -24,6 +19,11 @@ export class CreatePaymentDataDto {
   @IsOptional()
   @IsString()
   readonly accountNumber?: string; // Optional for cash
+
+  @Expose()
+  @IsNotEmpty()
+  @IsNumber()
+  readonly balance: number;
 
   @Expose()
   @IsNotEmpty()

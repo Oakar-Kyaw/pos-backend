@@ -17,10 +17,10 @@ export class PaymentDataService {
     try {
       const paymentData = await this.prisma.paymentData.create({
         data: {
-          name: dto.name,
           accountNumber: dto.accountNumber,
           accountName: dto.accountName,
           accountType: dto.accountType,
+          balance: dto.balance,
           userId,
           companyId,
           isActive: dto.isActive ?? true,
@@ -85,8 +85,8 @@ export class PaymentDataService {
     const updated = await this.prisma.paymentData.update({
       where: { id },
       data: {
-        name: dto.name,
         accountNumber: dto.accountNumber,
+        balance: dto.balance,
         accountName: dto.accountName,
         accountType: dto.accountType,
         isActive: dto.isActive,

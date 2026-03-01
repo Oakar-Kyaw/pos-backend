@@ -18,8 +18,10 @@ export class VoucherPhotoConsumer extends WorkerHost {
     console.log('Job data:', job.data);
 
     const { voucherId, tempPaths } = job.data;
+    const total = tempPaths.length;
     const photoUrls: string[] = [];
-    for (const temp of tempPaths) {
+    for (let i = 0; i < total; i++) {
+      let temp = tempPaths[i];
       const buffer = await fs.readFile(temp);
       const originalname = path.basename(temp);
       const fakeFile = {
@@ -32,6 +34,8 @@ export class VoucherPhotoConsumer extends WorkerHost {
           folderName: 'vouchers',
         });
         photoUrls.push(url);
+        let percent = Math.round(((i + 1) / total) * 100);
+        await job.updateProgress(percent);
       } catch (err) {
         console.error(`Failed to upload file ${temp}:`, err);
       } finally {
@@ -51,7 +55,6 @@ export class VoucherPhotoConsumer extends WorkerHost {
       console.log(
         `✅ Uploaded ${photoUrls.length} photos for voucher ${voucherId}`,
       );
-      return;
     }
   }
 }
