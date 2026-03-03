@@ -42,13 +42,25 @@ export class PaymentDataService {
   async findAll(userId: number, companyId: number) {
     const paymentDataList = await this.prisma.paymentData.findMany({
       where: { userId, companyId, isActive: true },
-      orderBy: { id: 'desc' },
+    });
+
+    const priorityOrder = ['CASH', 'EWALLET', 'BANK', 'CARD'];
+
+    const sorted = paymentDataList.sort((a, b) => {
+      const aIndex = priorityOrder.indexOf(a.accountType);
+      const bIndex = priorityOrder.indexOf(b.accountType);
+
+      // If not found in priority list → push to bottom
+      const aPriority = aIndex === -1 ? 999 : aIndex;
+      const bPriority = bIndex === -1 ? 999 : bIndex;
+
+      return aPriority - bPriority;
     });
 
     return {
       success: true,
       message: 'Payment data fetched successfully',
-      data: paymentDataList,
+      data: sorted,
     };
   }
 

@@ -10,7 +10,6 @@ import { UpdateVoucherDto } from './dto/update-voucher.dto';
 import { FileUpload } from 'src/utils/file-upload';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import sharp from 'sharp';
 
 @Injectable()
 export class VouchersService {
@@ -39,6 +38,19 @@ export class VouchersService {
       const tax = dto?.tax ?? 0; // example 10% tax
       const deliveryFee = dto?.deliveryFee ?? 0;
       const total = subTotal + tax + deliveryFee;
+      const totalPaymentAmount = dto.payments.reduce(
+        (sum, p) => sum + p.amount,
+        0,
+      );
+
+      if (totalPaymentAmount > total) {
+        throw new ForbiddenException(
+          'Total payment amount cannot exceed total voucher amount',
+        );
+      }
+
+      const debt = total - totalPaymentAmount;
+
       const voucherCode = await this.generateVoucherCode(companyId, dto.type);
       const voucher = await this.prisma.$transaction(async (tx) => {
         const createdVoucher = await tx.voucher.create({
@@ -52,6 +64,8 @@ export class VouchersService {
             totalPaymentAmount: dto.totalPaymentAmount,
             remainingPaymentAmount: dto.remainingPaymentAmount,
             total,
+            debt,
+            existDebt: debt > 0,
             userId,
             companyId,
             branchId,
@@ -117,19 +131,42 @@ export class VouchersService {
     pageNumber = 1,
     limit = 10,
     search?: string,
+    existDebt?: boolean,
   ) {
     const page = pageNumber < 1 ? 1 : pageNumber; // ensure minimum 1
     const skip = (page - 1) * limit;
+    let parsedDate: Date | null = null;
+    let isValidDate = false;
+
+    if (search && /^\d{4}-\d{2}-\d{2}$/.test(search)) {
+      const tempDate = new Date(search);
+
+      if (!isNaN(tempDate.getTime())) {
+        parsedDate = tempDate;
+        isValidDate = true;
+      }
+    }
 
     const where: Prisma.VoucherWhereInput = {
       userId,
       companyId,
-      ...{ branchId },
+      ...(branchId && { branchId }),
       isDeleted: false,
+      ...(existDebt !== undefined && { existDebt }),
       ...(search && {
         OR: [
           { voucherCode: { contains: search, mode: 'insensitive' } },
           { note: { contains: search, mode: 'insensitive' } },
+          ...(isValidDate && parsedDate
+            ? [
+                {
+                  createdAt: {
+                    gte: parsedDate,
+                    lt: new Date(parsedDate.getTime() + 24 * 60 * 60 * 1000),
+                  },
+                },
+              ]
+            : []),
         ],
       }),
     };
@@ -147,7 +184,7 @@ export class VouchersService {
         },
         orderBy: { id: 'desc' },
       });
-
+      console.log('search vouchers ', vouchers);
       return {
         success: true,
         message: 'Vouchers fetched successfully',

@@ -34,6 +34,16 @@ enum AccountType {
   EWALLET
 }
 
+enum RefundType {
+  FULL
+  PARTIAL
+}
+
+enum InventoryLossType {
+  EXPIRED
+  DAMAGED
+}
+
 enum Role {
   CUSTOMER
   SALE
@@ -143,6 +153,8 @@ model Company {
   saleReports        SaleReport[] @relation("companyfromsalereport")
   transfers          Transfer[]   @relation("companyfromtransfer")
   generalExpenses    GeneralExpense[] @relation("companyFromGeneralExpense")
+  refunds            Refund[]
+  inventoryLosses InventoryLoss[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt @default(now())
@@ -168,6 +180,8 @@ model Branch {
   transfers          Transfer[]   @relation("branchfromtransfer")
 
   generalExpenses GeneralExpense[] @relation("branchFromGeneralExpense")
+  refunds         Refund[]
+  inventoryLosses InventoryLoss[]
 
   users    User[]    @relation("UserBranch")
   vouchers Voucher[] @relation("VoucherBranch")
@@ -206,6 +220,8 @@ model User {
   saleUserReports   SaleReport[]   @relation("saleuserfromsalereport")
   saleUserTransfers Transfer[]    @relation("saleuserfromtransfer")
   generalExpenses GeneralExpense[] @relation("userFromGeneralExpense")
+  refunds Refund[]
+  inventoryLosses InventoryLoss[]
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -253,6 +269,9 @@ model Product {
   isActive  Boolean @default(true)
   isDeleted Boolean @default(false)
 
+  refundItems RefundItem[]
+  inventoryLossItems  InventoryLossItem[]
+
   categoryId Int
   category   Category @relation(fields: [categoryId], references: [id])
 
@@ -287,10 +306,15 @@ model Voucher {
   totalPaymentAmount     Decimal @default(0.00) @db.Decimal(12, 2)
   remainingPaymentAmount Decimal @default(0.00) @db.Decimal(12, 2)
 
-  total Decimal @default(0.00) @db.Decimal(12, 2)
+  total         Decimal @default(0.00) @db.Decimal(12, 2)
+  debt          Decimal @default(0.00) @db.Decimal(12, 2)
+  existDebt     Boolean @default(false)
 
-  note      String?
-  isDeleted Boolean @default(false)
+  note          String?
+  isDeleted     Boolean @default(false)
+  refunds       Refund[]
+  isRefund      Boolean @default(false)
+  repays        Repay[]
 
   userId Int
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -333,6 +357,127 @@ model VoucherItem {
   createdAt DateTime @default(now())
 
   @@index([voucherId])
+}
+
+model Repay {
+  id Int @id @default(autoincrement())
+
+  voucherId Int
+  voucher   Voucher @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+
+  amount    Decimal @default(0.00) @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([voucherId])
+}
+
+//////////////////////////////////////////////////////
+// REFUND
+//////////////////////////////////////////////////////
+
+model Refund {
+  id          Int         @id @default(autoincrement())
+  voucherId   Int?
+  voucher     Voucher?     @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+
+  amount      Decimal     @db.Decimal(12, 2)
+  reason      String?
+
+  paymentType PaymentType @default(CASH)
+  refundType  RefundType  @default(FULL)
+  paymentDataId Int
+  paymentData  PaymentData @relation(fields: [paymentDataId], references: [id])
+
+  userId      Int
+  user        User        @relation(fields: [userId], references: [id])
+
+  companyId   Int
+  company     Company     @relation(fields: [companyId], references: [id])
+
+  branchId    Int?
+  branch      Branch?     @relation(fields: [branchId], references: [id])
+
+  refundItems RefundItem[]
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  isDeleted   Boolean     @default(false)
+
+  @@index([voucherId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([userId])
+}
+
+//////////////////////////////////////////////////////
+// REFUND ITEM
+//////////////////////////////////////////////////////
+
+model RefundItem {
+  id        Int      @id @default(autoincrement())
+  refundId  Int
+  refund    Refund   @relation(fields: [refundId], references: [id], onDelete: Cascade)
+
+  productId Int?
+  product   Product?  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  quantity  Int      @default(0)
+  price     Decimal  @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([refundId])
+  @@index([productId])
+}
+
+model InventoryLoss {
+  id        Int               @id @default(autoincrement())
+  type      InventoryLossType
+
+  reason    String?
+  note      String?
+
+  totalLossAmount Decimal     @db.Decimal(12, 2)
+
+  userId    Int
+  user      User              @relation(fields: [userId], references: [id])
+
+  companyId Int
+  company   Company           @relation(fields: [companyId], references: [id])
+
+  branchId  Int?
+  branch    Branch?           @relation(fields: [branchId], references: [id])
+
+  items     InventoryLossItem[]
+
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  isDeleted Boolean           @default(false)
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([userId])
+  @@index([type])
+}
+
+model InventoryLossItem {
+  id          Int        @id @default(autoincrement())
+
+  inventoryLossId      Int
+  inventoryLoss        InventoryLoss @relation(fields: [inventoryLossId], references: [id], onDelete: Cascade)
+
+  productId   Int
+  product     Product    @relation(fields: [productId], references: [id])
+
+  quantity    Int
+  costPrice   Decimal    @db.Decimal(12, 2)
+  totalAmount Decimal    @db.Decimal(12, 2)
+
+  createdAt   DateTime   @default(now())
+
+  @@index([inventoryLossId])
+  @@index([productId])
 }
 
 //////////////////////////////////////////////////////
@@ -382,7 +527,7 @@ model PaymentData {
   accountNumber String?
   accountName   String
   accountType   AccountType
-  balance       Decimal @db.Decimal(12, 2)
+  balance       Decimal @db.Decimal(12, 2) @default(0)
   companyId Int
   userId    Int
 
@@ -391,6 +536,8 @@ model PaymentData {
   payments Payment[]
   fromAccount Transfer[] @relation("fromAccount")
   toAccount   Transfer[]  @relation("toAccount")
+
+  refunds   Refund[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

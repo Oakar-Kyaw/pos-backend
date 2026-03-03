@@ -47,6 +47,7 @@ export class VouchersController {
     @Query('page') page = '1',
     @Query('limit') limit = '10',
     @Query('search') search?: string,
+    @Query('existDebt') existDebt?: boolean,
   ) {
     const { id: userId, companyId, branchId } = req.user;
 
@@ -57,6 +58,7 @@ export class VouchersController {
       Number(page),
       Number(limit),
       search,
+      existDebt,
     );
   }
 

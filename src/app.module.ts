@@ -14,6 +14,7 @@ import { Queue } from 'bullmq';
 import { IncomeModule } from './income/income.module';
 import { SaleReportModule } from './sale-report/sale-report.module';
 import { GeneralExpenseModule } from './general-expense/general-expense.module';
+import { RefundModule } from './refund/refund.module';
 
 const redisUrl = new URL(process.env.REDIS_URL!);
 const redisConnection = {
@@ -50,6 +51,7 @@ const redisConnection = {
     IncomeModule,
     SaleReportModule,
     GeneralExpenseModule,
+    RefundModule,
   ],
   controllers: [AppController],
   providers: [AppService],
