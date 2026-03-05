@@ -50,7 +50,13 @@ enum Role {
   SALE
   POS
   ADMIN
+  MANAGER
   SUPERADMIN
+}
+
+enum EmployeeType {
+  MONTHLY
+  HOURLY
 }
 
 enum TransactionType {
@@ -145,6 +151,8 @@ model Company {
   phone    String?
   address  String?
   photoUrl String?
+  lat      String?
+  long     String?
 
   products           Product[]
   vouchers           Voucher[]
@@ -156,7 +164,7 @@ model Company {
   generalExpenses    GeneralExpense[] @relation("companyFromGeneralExpense")
   refunds            Refund[]
   inventories        InventoryManagement[]
-  repay   Repay[]
+  repay              Repay[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt @default(now())
@@ -200,6 +208,7 @@ model User {
   id    Int    @id @default(autoincrement())
   email String @unique
   role  Role   @default(CUSTOMER)
+  employeeType EmployeeType? @default(MONTHLY)
 
   firstName String?
   lastName  String?
@@ -211,7 +220,8 @@ model User {
   isDeleted Boolean @default(false)
 
   salary    Int?
-  
+  hourlyRate Decimal? @db.Decimal(10,2)
+  locationRestrict Boolean  @default(false)
 
   branchId Int?
   branch   Branch? @relation("UserBranch", fields: [branchId], references: [id])
