@@ -39,9 +39,10 @@ enum RefundType {
   PARTIAL
 }
 
-enum InventoryLossType {
+enum InventoryType {
   EXPIRED
   DAMAGED
+  REQUESTED
 }
 
 enum Role {
@@ -154,7 +155,8 @@ model Company {
   transfers          Transfer[]   @relation("companyfromtransfer")
   generalExpenses    GeneralExpense[] @relation("companyFromGeneralExpense")
   refunds            Refund[]
-  inventoryLosses InventoryLoss[]
+  inventories        InventoryManagement[]
+  repay   Repay[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt @default(now())
@@ -181,7 +183,8 @@ model Branch {
 
   generalExpenses GeneralExpense[] @relation("branchFromGeneralExpense")
   refunds         Refund[]
-  inventoryLosses InventoryLoss[]
+  inventories     InventoryManagement[]
+  repay   Repay[]
 
   users    User[]    @relation("UserBranch")
   vouchers Voucher[] @relation("VoucherBranch")
@@ -221,7 +224,8 @@ model User {
   saleUserTransfers Transfer[]    @relation("saleuserfromtransfer")
   generalExpenses GeneralExpense[] @relation("userFromGeneralExpense")
   refunds Refund[]
-  inventoryLosses InventoryLoss[]
+  inventories    InventoryManagement[]
+  repay   Repay[]
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -270,7 +274,7 @@ model Product {
   isDeleted Boolean @default(false)
 
   refundItems RefundItem[]
-  inventoryLossItems  InventoryLossItem[]
+  inventoryItems  InventoryItem[]
 
   categoryId Int
   category   Category @relation(fields: [categoryId], references: [id])
@@ -365,6 +369,20 @@ model Repay {
   voucherId Int
   voucher   Voucher @relation(fields: [voucherId], references: [id], onDelete: Cascade)
 
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  branchId Int?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  paymentDataId Int
+  paymentData PaymentData @relation(fields: [paymentDataId], references: [id])
+
+  photoUrl  String?
+
   amount    Decimal @default(0.00) @db.Decimal(12, 2)
 
   createdAt DateTime @default(now())
@@ -431,25 +449,28 @@ model RefundItem {
   @@index([productId])
 }
 
-model InventoryLoss {
+model InventoryManagement {
   id        Int               @id @default(autoincrement())
-  type      InventoryLossType
+  type      InventoryType
 
   reason    String?
   note      String?
 
-  totalLossAmount Decimal     @db.Decimal(12, 2)
+  totalAmount Decimal     @db.Decimal(12, 2)
 
   userId    Int
-  user      User              @relation(fields: [userId], references: [id])
+  user      User          @relation(fields: [userId], references: [id])
 
   companyId Int
-  company   Company           @relation(fields: [companyId], references: [id])
+  company   Company       @relation(fields: [companyId], references: [id])
 
   branchId  Int?
-  branch    Branch?           @relation(fields: [branchId], references: [id])
+  branch    Branch?       @relation(fields: [branchId], references: [id])
 
-  items     InventoryLossItem[]
+  //for request item, if confirmed then add item quantity 
+  confirmed Boolean       @default(false)
+
+  items     InventoryItem[]
 
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
@@ -461,22 +482,24 @@ model InventoryLoss {
   @@index([type])
 }
 
-model InventoryLossItem {
+model InventoryItem {
   id          Int        @id @default(autoincrement())
 
-  inventoryLossId      Int
-  inventoryLoss        InventoryLoss @relation(fields: [inventoryLossId], references: [id], onDelete: Cascade)
+  inventoryId      Int
+  inventory        InventoryManagement @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
 
   productId   Int
-  product     Product    @relation(fields: [productId], references: [id])
+  product     Product  @relation(fields: [productId], references: [id])
+
+  photoUrl    String?   
 
   quantity    Int
-  costPrice   Decimal    @db.Decimal(12, 2)
+  price   Decimal    @db.Decimal(12, 2) @default(0)
   totalAmount Decimal    @db.Decimal(12, 2)
 
   createdAt   DateTime   @default(now())
 
-  @@index([inventoryLossId])
+  @@index([inventoryId])
   @@index([productId])
 }
 
@@ -538,6 +561,7 @@ model PaymentData {
   toAccount   Transfer[]  @relation("toAccount")
 
   refunds   Refund[]
+  repays    Repay[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

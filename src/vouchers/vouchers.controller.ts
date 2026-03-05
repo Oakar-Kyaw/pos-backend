@@ -16,6 +16,7 @@ import { CreateVoucherDto } from './dto/create-voucher.dto';
 import { UpdateVoucherDto } from './dto/update-voucher.dto';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { multerConfig } from 'src/utils/multer-config';
+import { CreateRepaymentDto } from './dto/create-repayment.dto';
 
 @Controller('api/v1/vouchers')
 export class VouchersController {
@@ -93,5 +94,43 @@ export class VouchersController {
     const { id: userId, companyId } = req.user;
 
     return this.vouchersService.remove(+id, userId, companyId);
+  }
+
+  @Post('repay')
+  @UseInterceptors(FilesInterceptor('file', 1, multerConfig))
+  createRepayment(
+    @Req() req,
+    @Body() createRepaymentDto: CreateRepaymentDto,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    const { id: userId, companyId, branchId } = req.user;
+
+    return this.vouchersService.createRepayment(
+      createRepaymentDto,
+      userId,
+      companyId,
+      branchId,
+      files,
+    );
+  }
+
+  @Get('repay/datas')
+  findAllRepayment(
+    @Req() req,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+    @Query('search') search?: string,
+    @Query('existDebt') existDebt?: boolean,
+  ) {
+    const { id: userId, companyId, branchId } = req.user;
+
+    return this.vouchersService.findAllRepayment(
+      userId,
+      companyId,
+      branchId,
+      Number(page),
+      Number(limit),
+      search,
+    );
   }
 }

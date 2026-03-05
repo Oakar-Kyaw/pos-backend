@@ -10,6 +10,7 @@ import { UpdateVoucherDto } from './dto/update-voucher.dto';
 import { FileUpload } from 'src/utils/file-upload';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { CreateRepaymentDto } from './dto/create-repayment.dto';
 
 @Injectable()
 export class VouchersService {
@@ -360,5 +361,227 @@ export class VouchersService {
     const padded = String(nextNumber).padStart(5, '0');
 
     return `${company?.name.toUpperCase()}-${type.toUpperCase()}-${padded}`;
+  }
+
+  async createRepayment(
+    dto: CreateRepaymentDto,
+    userId: number,
+    companyId: number,
+    branchId: number,
+    files: Express.Multer.File[],
+  ) {
+    try {
+      const result = await this.prisma.$transaction(async (tx) => {
+        // 1️⃣ Check voucher
+        const voucher = await tx.voucher.findUnique({
+          where: { id: dto.voucherId },
+        });
+
+        if (!voucher) {
+          throw new Error('Voucher not found');
+        }
+
+        if (voucher.remainingPaymentAmount.lte(new Prisma.Decimal(0))) {
+          throw new Error('Voucher already fully paid');
+        }
+
+        if (dto.amount > Number(voucher.remainingPaymentAmount)) {
+          throw new Error('Repayment amount exceeds remaining balance');
+        }
+        console.log('dto is ', dto);
+
+        // 2️⃣ Create repayment record
+        const repay = await tx.repay.create({
+          data: {
+            voucherId: dto.voucherId,
+            paymentDataId: dto.paymentDataId,
+            amount: dto.amount,
+            userId,
+            companyId,
+            branchId,
+          },
+        });
+
+        // 3️⃣ Update voucher remaining amount
+        const newRemaining =
+          Number(voucher.remainingPaymentAmount) - dto.amount;
+
+        const totalPaymentAmount = Number(voucher.total) - newRemaining;
+        console.log('payment', voucher, newRemaining, totalPaymentAmount);
+        await tx.voucher.update({
+          where: { id: voucher.id },
+          data: {
+            remainingPaymentAmount: newRemaining,
+            debt: newRemaining,
+            totalPaymentAmount,
+            existDebt: newRemaining > 0,
+          },
+        });
+
+        return repay;
+      });
+
+      // 4️⃣ Background photo upload
+      if (files && files.length > 0) {
+        await this.voucherPhotoQueue.add(
+          'upload-repay-photos',
+          {
+            repayId: result.id,
+            tempPaths: files.map((f) => f.path),
+          },
+          {
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 3000 },
+            removeOnComplete: true,
+          },
+        );
+      }
+
+      return {
+        success: true,
+        message: 'Repayment created successfully',
+        data: result,
+      };
+    } catch (error) {
+      console.log('Repayment create error:', error);
+      throw new ForbiddenException(
+        error.message || 'Unable to create repayment',
+      );
+    }
+  }
+
+  // ================= FIND ALL REPAYMENTS =================
+  async findAllRepayment(
+    userId: number,
+    companyId: number,
+    branchId: number,
+    pageNumber = 1,
+    limit = 10,
+    search?: string,
+    voucherId?: number,
+  ) {
+    const page = pageNumber < 1 ? 1 : pageNumber;
+    const skip = (page - 1) * limit;
+
+    let parsedDate: Date | null = null;
+    let isValidDate = false;
+
+    // 📅 Check if search is date (YYYY-MM-DD)
+    if (search && /^\d{4}-\d{2}-\d{2}$/.test(search)) {
+      const tempDate = new Date(search);
+      if (!isNaN(tempDate.getTime())) {
+        parsedDate = tempDate;
+        isValidDate = true;
+      }
+    }
+
+    const where: Prisma.RepayWhereInput = {
+      userId,
+      companyId,
+      ...(branchId && { branchId }),
+      ...(voucherId && { voucherId }),
+
+      ...(search && {
+        OR: [
+          {
+            voucher: {
+              voucherCode: {
+                contains: search,
+                mode: 'insensitive',
+              },
+            },
+          },
+          ...(isValidDate && parsedDate
+            ? [
+                {
+                  createdAt: {
+                    gte: parsedDate,
+                    lt: new Date(parsedDate.getTime() + 24 * 60 * 60 * 1000),
+                  },
+                },
+              ]
+            : []),
+        ],
+      }),
+    };
+
+    // 🔍 If searching → no pagination (like your voucher logic)
+    if (search) {
+      const repays = await this.prisma.repay.findMany({
+        where,
+        include: {
+          voucher: {
+            include: {
+              items: true,
+              payments: true,
+              paymentPhotos: true,
+            },
+          },
+          paymentData: true,
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+            },
+          },
+        },
+        orderBy: { id: 'desc' },
+      });
+
+      return {
+        success: true,
+        message: 'Repayments fetched successfully',
+        data: repays,
+        meta: {
+          total: repays.length,
+          isSearch: true,
+        },
+      };
+    }
+
+    // 📄 Normal pagination
+    const [repays, total] = await Promise.all([
+      this.prisma.repay.findMany({
+        where,
+        include: {
+          voucher: {
+            include: {
+              items: true,
+              payments: true,
+              paymentPhotos: true,
+            },
+          },
+          paymentData: true,
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+            },
+          },
+        },
+        orderBy: { id: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.repay.count({ where }),
+    ]);
+
+    return {
+      success: true,
+      message: 'Repayments fetched successfully',
+      data: repays,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 }
