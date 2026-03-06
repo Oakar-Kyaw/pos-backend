@@ -10,6 +10,14 @@ datasource db {
 // ENUMS
 //////////////////////////////////////////////////////
 
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+  HALF_DAY
+  LEAVE
+}
+
 enum Gender {
   MALE
   FEMALE
@@ -163,6 +171,7 @@ model Company {
   transfers          Transfer[]   @relation("companyfromtransfer")
   generalExpenses    GeneralExpense[] @relation("companyFromGeneralExpense")
   refunds            Refund[]
+  Attendances        Attendance[]
   inventories        InventoryManagement[]
   repay              Repay[]
 
@@ -192,6 +201,7 @@ model Branch {
   generalExpenses GeneralExpense[] @relation("branchFromGeneralExpense")
   refunds         Refund[]
   inventories     InventoryManagement[]
+  Attendances             Attendance[]
   repay   Repay[]
 
   users    User[]    @relation("UserBranch")
@@ -226,6 +236,7 @@ model User {
   holidays  String[]
   startTime String?
   endTime  String?
+  lunchTime String?
 
   branchId Int?
   branch   Branch? @relation("UserBranch", fields: [branchId], references: [id])
@@ -236,6 +247,7 @@ model User {
   vouchers                Voucher[]
   categories              Category[]
   products                Product[]
+  Attendances             Attendance[]
   saleUserReports   SaleReport[]   @relation("saleuserfromsalereport")
   saleUserTransfers Transfer[]    @relation("saleuserfromtransfer")
   generalExpenses GeneralExpense[] @relation("userFromGeneralExpense")
@@ -602,6 +614,33 @@ model Currency {
   @@index([companyId])
 }
 
-//////////////////////////////////////////////////////
-// USER COMPANY RELATION
-//////////////////////////////////////////////////////
+model Attendance {
+  id Int @id @default(autoincrement())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id])
+
+  branchId Int?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  date DateTime
+
+  checkIn  String?
+  checkOut String?
+
+  workingHours Decimal? @db.Decimal(5,2)
+
+  status AttendanceStatus @default(PRESENT)
+
+  note String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([date])
+}

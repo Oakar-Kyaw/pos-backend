@@ -11,6 +11,7 @@ import {
   IsNumber,
   IsArray,
   IsBoolean,
+  IsDate,
 } from 'class-validator';
 
 export enum GenderEnum {
@@ -132,12 +133,12 @@ export class CreateUserDto {
 
   @Expose()
   @IsOptional()
-  @IsString()
+  @IsDate()
   startTime?: string;
 
   @Expose()
   @IsOptional()
-  @IsString()
+  @IsDate()
   endTime?: string;
 
   @Expose()

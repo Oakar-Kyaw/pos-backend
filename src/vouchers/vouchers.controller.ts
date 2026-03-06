@@ -59,7 +59,7 @@ export class VouchersController {
       Number(page),
       Number(limit),
       search,
-      existDebt,
+      existDebt ? existDebt : undefined,
     );
   }
 

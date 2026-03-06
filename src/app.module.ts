@@ -15,6 +15,7 @@ import { IncomeModule } from './income/income.module';
 import { SaleReportModule } from './sale-report/sale-report.module';
 import { GeneralExpenseModule } from './general-expense/general-expense.module';
 import { RefundModule } from './refund/refund.module';
+import { AttendancesModule } from './attendances/attendances.module';
 
 const redisUrl = new URL(process.env.REDIS_URL!);
 const redisConnection = {
@@ -52,6 +53,7 @@ const redisConnection = {
     SaleReportModule,
     GeneralExpenseModule,
     RefundModule,
+    AttendancesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

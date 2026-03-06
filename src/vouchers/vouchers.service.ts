@@ -138,7 +138,7 @@ export class VouchersService {
     const skip = (page - 1) * limit;
     let parsedDate: Date | null = null;
     let isValidDate = false;
-
+    //console.log('debt is ', existDebt);
     if (search && /^\d{4}-\d{2}-\d{2}$/.test(search)) {
       const tempDate = new Date(search);
 
