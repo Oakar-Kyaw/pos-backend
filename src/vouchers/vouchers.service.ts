@@ -149,7 +149,7 @@ export class VouchersService {
     }
 
     const where: Prisma.VoucherWhereInput = {
-      userId,
+      // userId,
       companyId,
       ...(branchId && { branchId }),
       isDeleted: false,
@@ -243,7 +243,7 @@ export class VouchersService {
     const voucher = await this.prisma.voucher.findFirst({
       where: {
         id,
-        userId,
+        // userId,
         companyId,
         isDeleted: false,
       },
@@ -476,7 +476,7 @@ export class VouchersService {
     }
 
     const where: Prisma.RepayWhereInput = {
-      userId,
+      // userId,
       companyId,
       ...(branchId && { branchId }),
       ...(voucherId && { voucherId }),

@@ -158,7 +158,7 @@ model Company {
   vouchers           Voucher[]
   branches           Branch[]
   currencies         Currency[]
-  userCompanyRelationship UserCompanyRelationship[]
+  users              User[]
   saleReports        SaleReport[] @relation("companyfromsalereport")
   transfers          Transfer[]   @relation("companyfromtransfer")
   generalExpenses    GeneralExpense[] @relation("companyFromGeneralExpense")
@@ -215,21 +215,27 @@ model User {
   password  String?
   phone     String?
   photoUrl  String?
+  address   String?
 
   gender    Gender  @default(MALE)
   isDeleted Boolean @default(false)
 
-  salary    Int?
-  hourlyRate Decimal? @db.Decimal(10,2)
+  monthlySalary    Int?
+  hourlySalary Decimal? @db.Decimal(10,2)
   locationRestrict Boolean  @default(false)
+  holidays  String[]
+  startTime String?
+  endTime  String?
 
   branchId Int?
   branch   Branch? @relation("UserBranch", fields: [branchId], references: [id])
 
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id])
+
   vouchers                Voucher[]
   categories              Category[]
   products                Product[]
-  userCompanyRelationship UserCompanyRelationship[]
   saleUserReports   SaleReport[]   @relation("saleuserfromsalereport")
   saleUserTransfers Transfer[]    @relation("saleuserfromtransfer")
   generalExpenses GeneralExpense[] @relation("userFromGeneralExpense")
@@ -599,16 +605,3 @@ model Currency {
 //////////////////////////////////////////////////////
 // USER COMPANY RELATION
 //////////////////////////////////////////////////////
-
-model UserCompanyRelationship {
-  id Int @id @default(autoincrement())
-
-  companyId Int
-  company   Company @relation(fields: [companyId], references: [id])
-
-  userId Int
-  user   User @relation(fields: [userId], references: [id])
-
-  @@index([companyId])
-  @@index([userId])
-}

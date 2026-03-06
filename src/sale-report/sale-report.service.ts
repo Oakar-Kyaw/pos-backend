@@ -127,7 +127,7 @@ export class SaleReportService {
     const where: any = {
       companyId,
       ...(branchId && { branchId }),
-      ...(userId && { userId }),
+      // ...(userId && { userId }),
     };
 
     // Date filtering

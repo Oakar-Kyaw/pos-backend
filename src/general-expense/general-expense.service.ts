@@ -63,7 +63,7 @@ export class GeneralExpenseService {
       companyId,
       isDeleted: false,
       ...(branchId && { branchId }),
-      ...(userId && { userId }),
+      // ...(userId && { userId }),
     };
 
     // 📅 Date filtering

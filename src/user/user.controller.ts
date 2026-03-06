@@ -43,23 +43,41 @@ export class UserController {
   // @Serialize(CreatedUserResponseDto)
   //@UseInterceptors(FileInterceptor('photoUrl'))
   @Post()
-  create(@Body() createUserWithProfileDto: CreateUserDto) {
-    return this.userService.create(createUserWithProfileDto);
+  create(@Req() req, @Body() createUserWithProfileDto: CreateUserDto) {
+    const { id: userId, companyId, branchId } = req.user;
+    return this.userService.create(
+      createUserWithProfileDto,
+      companyId,
+      branchId,
+    );
   }
   @Get()
   findAll(
-    @Query()
-    query: {
-      search?: string;
-      page?: string;
-      pageSize?: string;
-      from?: string;
-      to?: string;
-      order?: 'asc' | 'desc';
-      isDeleted?: boolean;
-    },
+    @Req() req,
+    @Query('email') email?: string,
+    @Query('phone') phone?: string,
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('order') order?: 'asc' | 'desc',
+    @Query('isDeleted') isDeleted?: boolean,
   ) {
-    return this.userService.findAll(query);
+    const { companyId } = req.user;
+
+    return this.userService.findAll(
+      {
+        search,
+        email,
+        phone,
+        page,
+        limit,
+        order,
+        isDeleted,
+      },
+      companyId,
+    );
   }
 
   @Get(':id')

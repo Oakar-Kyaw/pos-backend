@@ -48,7 +48,7 @@ export class CategoryService {
   async findAll(userId: number, search?: string) {
     const categories = await this.prisma.category.findMany({
       where: {
-        userId,
+        //userId,
         ...(search && {
           title: {
             contains: search,

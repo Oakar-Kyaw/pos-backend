@@ -52,10 +52,11 @@ export class ProductController {
     @Query('limit') limit = '10',
     @Query('search') search?: string,
   ) {
-    const { id: userId } = req.user;
+    const { id: userId, companyId } = req.user;
 
     return this.productService.findAll(
       userId,
+      companyId,
       Number(page),
       Number(limit),
       search,

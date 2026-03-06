@@ -62,11 +62,17 @@ export class ProductService {
   }
 
   // FIND ALL + SEARCH
-  async findAll(userId: number, page = 1, limit = 10, search?: string) {
+  async findAll(
+    userId: number,
+    companyId: number,
+    page = 1,
+    limit = 10,
+    search?: string,
+  ) {
     const skip = (page - 1) * limit;
 
     const where: Prisma.ProductWhereInput = {
-      userId,
+      companyId,
       isDeleted: false,
       ...(search && {
         OR: [

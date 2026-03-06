@@ -21,7 +21,11 @@ export class UserService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async create(createUserDto: CreateUserDto) {
+  async create(
+    createUserDto: CreateUserDto,
+    companyId: number,
+    branchId?: number,
+  ) {
     console.log(
       'UserService.create called with:',
       JSON.stringify(createUserDto, null, 2),
@@ -45,15 +49,18 @@ export class UserService {
     }
     delete createUserDto.otp;
 
-    const user = await this.prisma.user.create({
-      data: {
-        ...createUserDto,
-        password: hashPassword,
-      },
+    const user = await this.prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          ...createUserDto,
+          branchId,
+          companyId,
+          password: hashPassword,
+        },
+      });
+      return createdUser;
     });
-
     console.log('User created in DB:', user);
-
     //send welcome message
     let subject = 'Welcome to Our Platform!';
     let htmlContent = '';
@@ -117,29 +124,37 @@ export class UserService {
     };
   }
 
-  async findAll(query: {
-    isDeleted?: boolean;
-    email?: string;
-    phone?: string;
-    //role?: RoleEnum;
-    search?: string;
-    page?: string;
-    pageSize?: string;
-    from?: string;
-    to?: string;
-    startDate?: string;
-    endDate?: string;
-    order?: 'asc' | 'desc';
-  }) {
-    const where: any = { isDeleted: false };
-    if (query?.isDeleted !== undefined) where.isDeleted = query.isDeleted;
-    // if (query?.role) {
-    //   const r = query.role?.toUpperCase();
-    //   where.role = r === 'USER' ? 'CUSTOMER' : r;
-    // }
-    if (query?.email) where.email = query.email;
-    if (query?.phone) where.phone = query.phone;
+  async findAll(
+    query: {
+      isDeleted?: boolean;
+      email?: string;
+      phone?: string;
+      search?: string;
+      page?: string;
+      limit?: string;
+      order?: 'asc' | 'desc';
+    },
+    companyId: number,
+  ) {
+    const where: any = {
+      isDeleted: false,
+      companyId: companyId,
+    };
 
+    // optional filters
+    if (query?.isDeleted !== undefined) {
+      where.isDeleted = query.isDeleted;
+    }
+
+    if (query?.email) {
+      where.email = query.email;
+    }
+
+    if (query?.phone) {
+      where.phone = query.phone;
+    }
+
+    // search
     if (query?.search) {
       where.OR = [
         { email: { contains: query.search, mode: 'insensitive' } },
@@ -149,37 +164,36 @@ export class UserService {
       ];
     }
 
-    const qFrom = query?.from ?? query?.startDate;
-    const qTo = query?.to ?? query?.endDate;
-    if (qFrom || qTo) {
-      const createdAt: { gte?: Date; lte?: Date } = {};
-      if (qFrom) createdAt.gte = new Date(qFrom);
-      if (qTo) {
-        const end = new Date(qTo);
-        end.setHours(23, 59, 59, 999);
-        createdAt.lte = end;
-      }
-      where.createdAt = createdAt;
-    }
-
+    // order
     const order = query?.order === 'asc' ? 'asc' : 'desc';
-    const page = query?.page ? Number(query.page) : undefined;
-    const pageSize = query?.pageSize ? Number(query.pageSize) : undefined;
+
+    // pagination
+    const page = query?.page ? Number(query.page) : 1;
+    const pageSize = query?.limit ? Number(query.limit) : 10;
+
+    const skip = (page - 1) * pageSize;
+    const take = pageSize;
 
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
         where,
         orderBy: { id: order },
-        // skip: meta.skip,
-        // take: meta.limit,
+        skip,
+        take,
       }),
       this.prisma.user.count({ where }),
     ]);
 
     return {
       success: true,
-      message: 'USER_BY_ID',
+      message: 'USER_LIST',
       data: users,
+      meta: {
+        page,
+        limit: pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
     };
   }
 
@@ -481,14 +495,14 @@ export class UserService {
         message: 'User already existed.',
       };
 
-    const user = await this.prisma.user.create({
-      data: {
-        email: email!,
-        firstName: fristName ?? name,
-        lastName: lastName ?? '',
-        photoUrl: photoUrl,
-      },
-    });
+    // const user = await this.prisma.user.create({
+    //   data: {
+    //     email: email!,
+    //     firstName: fristName ?? name,
+    //     lastName: lastName ?? '',
+    //     photoUrl: photoUrl,
+    //   },
+    // });
 
     // await publishEvent(EVENTS.USER_EVENT, {
     //   type: TYPES.CREATED_USER,
@@ -504,7 +518,7 @@ export class UserService {
     return {
       success: true,
       message: 'User has been created successfully.',
-      data: user,
+      // data: user,
     };
   }
 
@@ -521,14 +535,14 @@ export class UserService {
         message: 'User already existed.',
         // data: user,
       };
-    const user = await this.prisma.user.create({
-      data: {
-        email: email,
-        firstName: given_name,
-        lastName: family_name,
-        photoUrl: picture,
-      },
-    });
+    // const user = await this.prisma.user.create({
+    //   data: {
+    //     email: email,
+    //     firstName: given_name,
+    //     lastName: family_name,
+    //     photoUrl: picture,
+    //   },
+    // });
 
     // await publishEvent(EVENTS.USER_EVENT, {
     //   type: TYPES.CREATED_USER,
@@ -539,11 +553,11 @@ export class UserService {
     //   role: 'CUSTOMER',
     //   provider: 'GOOGLE',
     // });
-    console.log('user is: ', user);
+    //console.log('user is: ', user);
     return {
       success: true,
       message: 'User has been created successfully.',
-      data: user,
+      //data: user,
     };
   }
 
@@ -558,21 +572,21 @@ export class UserService {
       );
     if (data?.birthday)
       data.dateOfBirth = new Date(data.birthday).toISOString();
-    const user = await this.prisma.user.create({
-      data: {
-        email: data.email,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        photoUrl: data.photoUrl,
-        dateOfBirth: data.dateOfBirth ?? null,
-        gender: data?.gender?.toUpperCase() ?? null,
-      },
-    });
-    console.log('user: ', user);
+    // const user = await this.prisma.user.create({
+    //   data: {
+    //     email: data.email,
+    //     firstName: data.firstName,
+    //     lastName: data.lastName,
+    //     photoUrl: data.photoUrl,
+    //     dateOfBirth: data.dateOfBirth ?? null,
+    //     gender: data?.gender?.toUpperCase() ?? null,
+    //   },
+    // });
+    //console.log('user: ', user);
     return {
       success: true,
       message: 'CREATED_USER',
-      data: user,
+      // data: user,
     };
   }
 

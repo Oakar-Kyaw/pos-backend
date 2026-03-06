@@ -71,19 +71,12 @@ export class AuthService {
     if (!passwordComparison)
       throw new UnauthorizedException(`Password was wrong.`);
 
-    const companyIdByUser = await this.prisma.userCompanyRelationship.findFirst(
-      {
-        where: {
-          userId: user.id,
-        },
-      },
-    );
     const payload = {
       id: user.id,
       email: user.email,
       phone: user.phone,
       role: user.role,
-      companyId: companyIdByUser?.id ?? null,
+      companyId: user.companyId ?? null,
     };
 
     console.log('🎫 Generating tokens for user:', user.id);
@@ -173,19 +166,12 @@ export class AuthService {
     }
 
     console.log('🎫 Generating new access token...');
-    const companyIdByUser = await this.prisma.userCompanyRelationship.findFirst(
-      {
-        where: {
-          userId: data.id,
-        },
-      },
-    );
     const newAccessToken = await this.jwtService.signAsync({
       id: data.id,
       email: data.email,
       phone: data.phone,
       role: data.role,
-      companyId: companyIdByUser?.id ?? null,
+      companyId: data.companyId ?? null,
       brandId: data.branchId,
     });
 

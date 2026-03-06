@@ -44,19 +44,13 @@ export class CompanyService {
     const user = await this.prisma.user.create({
       data: {
         email: company.email,
+        companyId: company.id,
         password: hashPassword,
         phone: company.phone,
         role: 'POS',
       },
     });
     console.log('user is ', user);
-    const userCompanyRelationship =
-      await this.prisma.userCompanyRelationship.create({
-        data: {
-          userId: Number(user.id),
-          companyId: Number(company.id),
-        },
-      });
 
     return {
       success: true,

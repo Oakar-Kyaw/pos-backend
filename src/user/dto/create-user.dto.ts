@@ -8,6 +8,9 @@ import {
   MinLength,
   IsDateString,
   IsInt,
+  IsNumber,
+  IsArray,
+  IsBoolean,
 } from 'class-validator';
 
 export enum GenderEnum {
@@ -15,8 +18,14 @@ export enum GenderEnum {
   FEMALE = 'FEMALE',
 }
 
+export enum EmployeeTypeEnum {
+  MONTHLY = 'MONTHLY',
+  HOURLY = 'HOURLY',
+}
+
 export class CreateUserDto {
   // -------- User Base --------
+
   @Expose()
   @IsOptional()
   @IsString()
@@ -70,7 +79,7 @@ export class CreateUserDto {
         Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()),
       )
         .toISOString()
-        .replace(/\.\d{3}Z$/, 'Z'); // strip milliseconds
+        .replace(/\.\d{3}Z$/, 'Z');
     }
     return null;
   })
@@ -81,4 +90,58 @@ export class CreateUserDto {
   @IsString()
   @Transform(({ value }) => (value ? String(value).trim() : null))
   otp?: string;
+
+  // -------- Employee Fields --------
+
+  @Expose()
+  @IsOptional()
+  @IsEnum(EmployeeTypeEnum)
+  @Transform(({ value }) =>
+    value ? String(value).trim().toUpperCase() : 'MONTHLY',
+  )
+  employeeType?: EmployeeTypeEnum;
+
+  @Expose()
+  @IsOptional()
+  @IsNumber()
+  @Transform(({ value }) => (value ? Number(value) : null))
+  monthlySalary?: number;
+
+  @Expose()
+  @IsOptional()
+  @IsNumber()
+  @Transform(({ value }) => (value ? Number(value) : null))
+  hourlySalary?: number;
+
+  @Expose()
+  @IsOptional()
+  @IsInt()
+  @Transform(({ value }) => (value ? Number(value) : null))
+  branchId?: number;
+
+  @Expose()
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  holidays?: string[];
+
+  @Expose()
+  @IsOptional()
+  @IsBoolean()
+  locationRestrict: boolean;
+
+  @Expose()
+  @IsOptional()
+  @IsString()
+  startTime?: string;
+
+  @Expose()
+  @IsOptional()
+  @IsString()
+  endTime?: string;
+
+  @Expose()
+  @IsOptional()
+  @IsString()
+  address?: string;
 }

@@ -41,7 +41,7 @@ export class PaymentDataService {
   // ================= FIND ALL =================
   async findAll(userId: number, companyId: number) {
     const paymentDataList = await this.prisma.paymentData.findMany({
-      where: { userId, companyId, isActive: true },
+      where: { companyId, isActive: true },
     });
 
     const priorityOrder = ['CASH', 'EWALLET', 'BANK', 'CARD'];
