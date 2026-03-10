@@ -12,15 +12,27 @@ datasource db {
 
 enum AttendanceStatus {
   PRESENT
-  LATE
   ABSENT
   HALF_DAY
   LEAVE
+  HOLIDAY
 }
 
 enum Gender {
   MALE
   FEMALE
+}
+
+enum CompanyType {
+  SHOP
+  RESTAURANT
+}
+
+enum HrRuleType {
+  DEDUCT
+  OVERTIME
+  EARLY_LEAVE
+  LEAVE_ALLOW
 }
 
 enum VoucherType {
@@ -161,6 +173,7 @@ model Company {
   photoUrl String?
   lat      String?
   long     String?
+  type     CompanyType    @default(SHOP)
 
   products           Product[]
   vouchers           Voucher[]
@@ -174,7 +187,7 @@ model Company {
   Attendances        Attendance[]
   inventories        InventoryManagement[]
   repay              Repay[]
-
+  hrRules            HrRule[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt @default(now())
 }
@@ -202,6 +215,7 @@ model Branch {
   refunds         Refund[]
   inventories     InventoryManagement[]
   Attendances             Attendance[]
+  hrRules HrRule[]
   repay   Repay[]
 
   users    User[]    @relation("UserBranch")
@@ -631,6 +645,11 @@ model Attendance {
   checkIn  String?
   checkOut String?
 
+  lateMinutes       Int      @default(0)
+  overtimeMinutes   Int   @default(0)
+  earlyLeaveMinutes Int   @default(0)
+  leaveDay      Int   @default(0)
+
   workingHours Decimal? @db.Decimal(5,2)
 
   status AttendanceStatus @default(PRESENT)
@@ -643,4 +662,32 @@ model Attendance {
   @@index([userId])
   @@index([companyId])
   @@index([date])
+}
+
+model HrRule {
+  id           Int       @id @default(autoincrement())
+  
+  // Relation to Company
+  companyId    Int
+  company      Company   @relation(fields: [companyId], references: [id])
+  
+  branchId     Int?      // Optional: branch-specific rules
+  branch       Branch?   @relation(fields: [branchId], references: [id])
+
+  type         HrRuleType @default(DEDUCT)
+
+  thresholdMinute Int?
+  thresholdAmount Int?
+  thresholdAmountPercent Int?
+  overtimeMinute  Int?
+  overtimeDay     Int?
+  overtimeAmount  Int?
+  overtimeAmountPercent Int?
+  earlyLeaveMinute Int?
+  earlyLeaveAmount  Int?
+  earlyLeavePercent Int?
+  leaveAllowDay     Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

@@ -8,10 +8,13 @@ import {
   Delete,
   Req,
   Query,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { AttendancesService } from './attendances.service';
 import { CreateAttendanceDto } from './dto/create-attendance.dto';
 import { UpdateAttendanceDto } from './dto/update-attendance.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('api/v1/attendances')
 export class AttendancesController {
@@ -32,15 +35,42 @@ export class AttendancesController {
 
   // ================= FIND ALL =================
   @Get()
-  findAll(@Req() req, @Query('page') page = '1', @Query('limit') limit = '10') {
-    const { id: userId, companyId, branchId } = req.user;
+  findAll(
+    @Req() req,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+    @Query('filterUserId') filterUserId,
+    @Query('date') date: string,
+  ) {
+    const { id: userId, companyId, branchId, role } = req.user;
 
     return this.attendancesService.findAll(
+      role,
       userId,
       companyId,
       branchId,
+      date,
+      filterUserId,
       +page,
       +limit,
+    );
+  }
+
+  @Get('monthly/grouped')
+  getMonthlyAttendanceGroupedByStatus(
+    @Req() req,
+    @Query('filterUserId') filterUserId,
+    @Query('date') date: string,
+  ) {
+    const { id: userId, companyId, branchId, role } = req.user;
+
+    return this.attendancesService.getMonthlyAttendanceGroupedByStatus(
+      role,
+      userId,
+      companyId,
+      branchId,
+      date,
+      filterUserId,
     );
   }
 
@@ -87,5 +117,41 @@ export class AttendancesController {
       companyId,
       branchId,
     );
+  }
+
+  // ================= FIND ALL =================
+  @Get('date/filter')
+  findByDateAndUserFilter(@Req() req, @Query('date') date) {
+    const { id: userId, companyId, branchId } = req.user;
+
+    return this.attendancesService.findByDateAndUserFilter(
+      userId,
+      companyId,
+      branchId,
+      date,
+    );
+  }
+
+  @Post('user/check-out')
+  createAttendanceByDateAndUserFilterAndUpdate(
+    @Req() req,
+    @Body('date') date,
+    @Body('checkOut') checkOut: string,
+  ) {
+    const { id: userId, companyId, branchId } = req.user;
+
+    return this.attendancesService.checkOut(
+      userId,
+      companyId,
+      branchId,
+      date,
+      checkOut,
+    );
+  }
+
+  @Post('data/excel')
+  @UseInterceptors(FileInterceptor('excel'))
+  postExcel(@UploadedFile() file: Express.Multer.File) {
+    return this.attendancesService.postExcel(file);
   }
 }

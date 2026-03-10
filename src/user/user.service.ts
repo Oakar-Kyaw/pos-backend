@@ -162,6 +162,21 @@ export class UserService {
         { firstName: { contains: query.search, mode: 'insensitive' } },
         { lastName: { contains: query.search, mode: 'insensitive' } },
       ];
+
+      const users = await this.prisma.user.findMany({
+        where,
+        orderBy: { id: 'desc' },
+      });
+
+      return {
+        success: true,
+        message: 'Users fetched successfully',
+        data: users,
+        meta: {
+          total: users.length,
+          isSearch: true,
+        },
+      };
     }
 
     // order

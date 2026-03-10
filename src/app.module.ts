@@ -10,12 +10,17 @@ import { VouchersModule } from './vouchers/vouchers.module';
 import { PaymentDataModule } from './payment-data/payment-data.module';
 import { PaymentModule } from './payment/payment.module';
 import { BullModule, InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
 import { IncomeModule } from './income/income.module';
 import { SaleReportModule } from './sale-report/sale-report.module';
 import { GeneralExpenseModule } from './general-expense/general-expense.module';
 import { RefundModule } from './refund/refund.module';
 import { AttendancesModule } from './attendances/attendances.module';
+import { CacheModule } from '@nestjs/cache-manager';
+import KeyvRedis from '@keyv/redis';
+import { Keyv } from 'keyv';
+import { CacheableMemory } from 'cacheable';
+import { CacheService } from './cache-service/cache-service.service';
+import { HrRuleModule } from './hr-rule/hr-rule.module';
 
 const redisUrl = new URL(process.env.REDIS_URL!);
 const redisConnection = {
@@ -24,9 +29,19 @@ const redisConnection = {
   password: redisUrl.password, // w5XSuG2cEcxLJAAWAbM0prIk2QazbYXc
   tls: redisUrl.protocol === 'rediss:' ? {} : undefined, // enable TLS if rediss://
 };
-
 @Module({
   imports: [
+    CacheModule.registerAsync({
+      isGlobal: true,
+      useFactory: async () => ({
+        stores: [
+          new Keyv({
+            store: new CacheableMemory({ ttl: 60000, lruSize: 5000 }),
+          }),
+          new KeyvRedis(process.env.REDIS_URL),
+        ],
+      }),
+    }),
     UserModule,
     CompanyModule,
     AuthModule,
@@ -48,14 +63,14 @@ const redisConnection = {
         removeOnFail: true, // Remove the job when it fails// Set timeout for job execution
       },
     }),
-    BullModule.registerQueue({ name: 'voucher-photos' }),
     IncomeModule,
     SaleReportModule,
     GeneralExpenseModule,
     RefundModule,
     AttendancesModule,
+    HrRuleModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, CacheService],
 })
 export class AppModule {}

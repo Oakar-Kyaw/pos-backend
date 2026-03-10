@@ -5,7 +5,7 @@ import { FileUpload } from 'src/utils/file-upload';
 import * as fs from 'fs/promises';
 import path from 'path';
 
-@Processor('voucher-photos')
+@Processor('voucher-photos', { concurrency: 2 })
 export class VoucherPhotoConsumer extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
@@ -13,7 +13,7 @@ export class VoucherPhotoConsumer extends WorkerHost {
   ) {
     super();
   }
-  async process(job: Job): Promise<void> {
+  async process(job: Job): Promise<{ uploaded: number }> {
     console.log(`Picked up job ${job.id}`);
     console.log('Job data:', job.data);
 
@@ -56,5 +56,6 @@ export class VoucherPhotoConsumer extends WorkerHost {
         `✅ Uploaded ${photoUrls.length} photos for voucher ${voucherId}`,
       );
     }
+    return { uploaded: photoUrls.length };
   }
 }

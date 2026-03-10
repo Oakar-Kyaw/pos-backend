@@ -11,6 +11,10 @@ import { Queue } from 'bullmq';
   imports: [
     BullModule.registerQueue({
       name: 'voucher-photos',
+      defaultJobOptions: {
+        removeOnComplete: true,
+        removeOnFail: true,
+      },
     }),
   ],
   controllers: [VouchersController],
