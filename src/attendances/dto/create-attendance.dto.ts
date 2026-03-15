@@ -33,7 +33,7 @@ export class CreateAttendanceDto {
   @IsOptional()
   @IsNumber()
   @Transform(({ value }) => (value ? Number(value) : null))
-  readonly workingHours?: number;
+  readonly workingMinutes?: number;
 
   @Expose()
   @IsOptional()

@@ -29,48 +29,49 @@ export class AuthService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async signIn(datas) {
-    if (!datas)
+  async signIn(datas: { email?: string; phone?: string; password: string }) {
+    if (!datas) {
       throw new BadRequestException('Either email or phone must be provided');
-    const { email, password, phone } = datas;
-    console.log('email and password', email, password);
-    if (!email && !phone)
-      throw new BadRequestException('Either email or phone must be provided');
+    }
+
+    const { email, phone, password } = datas;
 
     if (!email && !phone) {
       throw new BadRequestException('Either email or phone must be provided');
     }
 
-    const orConditions: any = [];
+    // Build OR conditions for Prisma query
+    const orConditions: any[] = [];
+    if (email) orConditions.push({ email });
+    if (phone) orConditions.push({ phone });
 
-    if (email) {
-      orConditions.push({ email });
-    }
-
-    if (phone) {
-      orConditions.push({ phone });
-    }
-
+    // Fetch user
     const user = await this.prisma.user.findFirst({
       where: {
         isDeleted: false,
         OR: orConditions,
       },
+      include: {
+        company: true, // if you want to return company info
+      },
     });
-    if (!user)
-      throw new NotFoundException(
-        `User with this ${email ? 'email' : 'phone'} Not found`,
-      );
-    // Enforce single provider per account
-    // if (user.provider && user.provider !== 'PASSWORD') {
-    //   throw new ConflictException(
-    //     `Account registered with ${user.provider}. Use ${user.provider} to log in.`,
-    //   );
-    // }
-    const passwordComparison = await comparePassword(password, user.password);
-    if (!passwordComparison)
-      throw new UnauthorizedException(`Password was wrong.`);
 
+    if (!user) {
+      throw new NotFoundException(
+        `User with this ${email ? 'email' : 'phone'} not found`,
+      );
+    }
+
+    // Check password
+    const passwordComparison = await comparePassword(password, user.password);
+    if (!passwordComparison) {
+      throw new UnauthorizedException('Password was wrong.');
+    }
+
+    // Remove password from user object before sending to frontend
+    const { password: _, ...safeUser } = user;
+
+    // Prepare JWT payload
     const payload = {
       id: user.id,
       email: user.email,
@@ -81,10 +82,12 @@ export class AuthService {
 
     console.log('🎫 Generating tokens for user:', user.id);
     const { access_token, refresh_token } = await this.encryptedData(payload);
+
     return {
       success: true,
       message: 'Login Successful',
       data: payload,
+      user: safeUser,
       access_token,
       refresh_token,
     };

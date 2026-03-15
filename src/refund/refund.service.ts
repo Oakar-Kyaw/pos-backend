@@ -91,11 +91,13 @@ export class RefundService {
     limit: number,
   ) {
     const skip = (page - 1) * limit;
+    console.log('user is ', userId);
     const [refunds, total] = await Promise.all([
       this.prisma.refund.findMany({
         where: {
           companyId,
           ...(branchId && { branchId }),
+          ...(userId && { userId }),
           isDeleted: false,
         },
         include: {

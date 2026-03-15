@@ -10,11 +10,13 @@ import {
   Query,
   UseInterceptors,
   UploadedFile,
+  Headers,
 } from '@nestjs/common';
 import { AttendancesService } from './attendances.service';
 import { CreateAttendanceDto } from './dto/create-attendance.dto';
 import { UpdateAttendanceDto } from './dto/update-attendance.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { isAdmin, isManager } from 'src/utils/check-user-role';
 
 @Controller('api/v1/attendances')
 export class AttendancesController {
@@ -43,10 +45,11 @@ export class AttendancesController {
     @Query('date') date: string,
   ) {
     const { id: userId, companyId, branchId, role } = req.user;
-
+    //if not admin and manager , just see only his attendance
+    let id = !(isAdmin(role) || isManager(role)) ? userId : undefined;
+    if (filterUserId) id = filterUserId;
     return this.attendancesService.findAll(
-      role,
-      userId,
+      id,
       companyId,
       branchId,
       date,
@@ -60,7 +63,7 @@ export class AttendancesController {
   getMonthlyAttendanceGroupedByStatus(
     @Req() req,
     @Query('filterUserId') filterUserId,
-    @Query('date') date: string,
+    @Query('date') date: Date,
   ) {
     const { id: userId, companyId, branchId, role } = req.user;
 
@@ -108,11 +111,16 @@ export class AttendancesController {
   }
 
   @Post('check-in')
-  createCheckIn(@Req() req, @Body() createAttendanceDto: CreateAttendanceDto) {
+  createCheckIn(
+    @Req() req,
+    @Body() createAttendanceDto: CreateAttendanceDto,
+    @Headers('x-timezone') timezone: string,
+  ) {
     const { id: userId, companyId, branchId } = req.user;
 
     return this.attendancesService.createCheckIn(
       createAttendanceDto,
+      timezone,
       userId,
       companyId,
       branchId,
@@ -134,6 +142,7 @@ export class AttendancesController {
 
   @Post('user/check-out')
   createAttendanceByDateAndUserFilterAndUpdate(
+    @Headers('x-timezone') timezone: string,
     @Req() req,
     @Body('date') date,
     @Body('checkOut') checkOut: string,
@@ -141,6 +150,7 @@ export class AttendancesController {
     const { id: userId, companyId, branchId } = req.user;
 
     return this.attendancesService.checkOut(
+      timezone,
       userId,
       companyId,
       branchId,

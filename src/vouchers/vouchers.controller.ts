@@ -17,6 +17,7 @@ import { UpdateVoucherDto } from './dto/update-voucher.dto';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { multerConfig } from 'src/utils/multer-config';
 import { CreateRepaymentDto } from './dto/create-repayment.dto';
+import { isAdmin, isManager } from 'src/utils/check-user-role';
 
 @Controller('api/v1/vouchers')
 export class VouchersController {
@@ -49,26 +50,33 @@ export class VouchersController {
     @Query('limit') limit = '10',
     @Query('search') search?: string,
     @Query('existDebt') existDebt?: boolean,
+    @Query('filterUserId') filterUserId?: number,
+    @Query('startDate') startDate?: Date,
+    @Query('endDate') endDate?: Date,
   ) {
-    const { id: userId, companyId, branchId } = req.user;
-
+    const { id: userId, companyId, branchId, role } = req.user;
+    //if not admin and manager , just see only his voucher
+    let id = !(isAdmin(role) || isManager(role)) ? userId : undefined;
+    //if filterUserId exist
+    if (filterUserId) id = filterUserId;
+    console.log('admin user is ', id, !isManager(role), startDate, endDate);
     return this.vouchersService.findAll(
-      userId,
+      id,
       companyId,
       branchId,
       Number(page),
       Number(limit),
       search,
       existDebt ? existDebt : undefined,
+      startDate,
+      endDate,
     );
   }
 
   // ================= FIND ONE =================
   @Get(':id')
   findOne(@Req() req, @Param('id') id: string) {
-    const { id: userId, companyId } = req.user;
-
-    return this.vouchersService.findOne(+id, userId, companyId);
+    return this.vouchersService.findOne(+id);
   }
 
   // ================= UPDATE =================
@@ -91,9 +99,9 @@ export class VouchersController {
   // ================= DELETE =================
   @Delete(':id')
   remove(@Req() req, @Param('id') id: string) {
-    const { id: userId, companyId } = req.user;
+    const { role } = req.user;
 
-    return this.vouchersService.remove(+id, userId, companyId);
+    return this.vouchersService.remove(+id, role);
   }
 
   @Post('repay')

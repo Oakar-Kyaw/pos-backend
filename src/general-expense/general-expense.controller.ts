@@ -14,6 +14,7 @@ import {
 import { GeneralExpenseService } from './general-expense.service';
 import { CreateGeneralExpenseDto } from './dto/create-general-expense.dto';
 import { UpdateGeneralExpenseDto } from './dto/update-general-expense.dto';
+import { isAdmin, isManager } from 'src/utils/check-user-role';
 
 @Controller('api/v1/general-expenses')
 export class GeneralExpenseController {
@@ -36,13 +37,17 @@ export class GeneralExpenseController {
     @Req() req,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
+    @Query('startDate') startDate?: Date,
+    @Query('endDate') endDate?: Date,
+    @Query('filterUserId') filterUserId?: number,
   ) {
-    const { userId, companyId, branchId } = req.user;
-
+    const { userId, companyId, branchId, role } = req.user;
+    //if not admin and manager , just see only his voucher
+    let id = !(isAdmin(role) || isManager(role)) ? userId : undefined;
+    //if filterUserId exist
+    if (filterUserId) id = filterUserId;
     return this.generalExpenseService.findAll(
-      userId,
+      id,
       companyId,
       branchId,
       page ? page : 1,

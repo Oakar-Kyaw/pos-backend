@@ -54,26 +54,35 @@ export class GeneralExpenseService {
     branchId: number,
     page: number,
     limit: number,
-    startDate?: string,
-    endDate?: string,
+    startDate?: Date,
+    endDate?: Date,
   ) {
     const skip = (page - 1) * limit;
+    // Ensure endDate defaults to today if not provided
+    const today = new Date();
+    endDate = endDate ? new Date(endDate) : today;
 
+    // If startDate is after endDate, reset startDate to endDate
+    if (startDate && startDate > endDate) {
+      startDate = endDate;
+    }
     const where: any = {
       companyId,
       isDeleted: false,
       ...(branchId && { branchId }),
-      // ...(userId && { userId }),
+      ...(userId && { userId }),
     };
 
     // 📅 Date filtering
     if (startDate || endDate) {
       where.date = {
         ...(startDate && { gte: new Date(startDate) }),
-        ...(endDate && { lte: new Date(endDate) }),
+        ...(endDate && {
+          lt: new Date(endDate.getTime() + 24 * 60 * 60 * 1000),
+        }),
       };
     }
-
+    console.log('date is ', startDate, endDate, userId);
     const [data, total] = await this.prisma.$transaction([
       this.prisma.generalExpense.findMany({
         where,

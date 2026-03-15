@@ -28,14 +28,7 @@ export class HrRuleService {
           thresholdMinute: dto.thresholdMinute,
           thresholdAmount: dto.thresholdAmount,
           thresholdAmountPercent: dto.thresholdAmountPercent,
-          overtimeMinute: dto.overtimeMinute,
-          overtimeDay: dto.overtimeDay,
-          overtimeAmount: dto.overtimeAmount,
-          overtimeAmountPercent: dto.overtimeAmountPercent,
-          earlyLeaveMinute: dto.earlyLeaveMinute,
-          earlyLeaveAmount: dto.earlyLeaveAmount,
-          earlyLeavePercent: dto.earlyLeavePercent,
-          leaveAllowDay: dto.leaveAllowDay,
+          thresholdDays: dto.thresholdDays,
         },
       });
 
@@ -122,14 +115,7 @@ export class HrRuleService {
         thresholdMinute: dto.thresholdMinute,
         thresholdAmount: dto.thresholdAmount,
         thresholdAmountPercent: dto.thresholdAmountPercent,
-        overtimeMinute: dto.overtimeMinute,
-        overtimeAmount: dto.overtimeAmount,
-        overtimeDay: dto.overtimeDay,
-        overtimeAmountPercent: dto.overtimeAmountPercent,
-        earlyLeaveMinute: dto.earlyLeaveMinute,
-        earlyLeaveAmount: dto.earlyLeaveAmount,
-        earlyLeavePercent: dto.earlyLeavePercent,
-        leaveAllowDay: dto.leaveAllowDay,
+        thresholdDays: dto.thresholdDays,
       },
     });
 

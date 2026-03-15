@@ -71,6 +71,7 @@ enum Role {
   POS
   ADMIN
   MANAGER
+  WAITER
   SUPERADMIN
 }
 
@@ -174,6 +175,7 @@ model Company {
   lat      String?
   long     String?
   type     CompanyType    @default(SHOP)
+  payroll   Payroll[]
 
   products           Product[]
   vouchers           Voucher[]
@@ -210,7 +212,7 @@ model Branch {
 
   saleReports        SaleReport[] @relation("branchfromsalereport")
   transfers          Transfer[]   @relation("branchfromtransfer")
-
+  payroll   Payroll[]
   generalExpenses GeneralExpense[] @relation("branchFromGeneralExpense")
   refunds         Refund[]
   inventories     InventoryManagement[]
@@ -257,7 +259,8 @@ model User {
 
   companyId Int
   company   Company @relation(fields: [companyId], references: [id])
-
+  payrolls        Payroll[] @relation("PayrollUser")
+  approvedPayrolls Payroll[] @relation("PayrollApproveUser")
   vouchers                Voucher[]
   categories              Category[]
   products                Product[]
@@ -397,8 +400,9 @@ model VoucherItem {
   name     String
   photoUrl String?
 
-  quantity Int     @default(0)
-  price    Decimal @default(0.00) @db.Decimal(12, 2)
+  quantity     Int     @default(0)
+  price        Decimal @default(0.00) @db.Decimal(12, 2)
+  costPrice    Decimal @default(0.00) @db.Decimal(12, 2)
 
   createdAt DateTime @default(now())
 
@@ -642,15 +646,19 @@ model Attendance {
 
   date DateTime
 
-  checkIn  String?
-  checkOut String?
+  // ✅ DateTime instead of String
+  checkIn   String?
+  checkOut  String?
 
+  isLate            Boolean @default(false)
+  isEarlyLeave      Boolean @default(false)
   lateMinutes       Int      @default(0)
   overtimeMinutes   Int   @default(0)
   earlyLeaveMinutes Int   @default(0)
-  leaveDay      Int   @default(0)
+  workingMinutes    Int     @default(0)
 
-  workingHours Decimal? @db.Decimal(5,2)
+  // ✅ Overtime must be approved before payroll picks it up
+  overtimeApproved  Boolean @default(false)
 
   status AttendanceStatus @default(PRESENT)
 
@@ -679,15 +687,65 @@ model HrRule {
   thresholdMinute Int?
   thresholdAmount Int?
   thresholdAmountPercent Int?
-  overtimeMinute  Int?
-  overtimeDay     Int?
-  overtimeAmount  Int?
-  overtimeAmountPercent Int?
-  earlyLeaveMinute Int?
-  earlyLeaveAmount  Int?
-  earlyLeavePercent Int?
-  leaveAllowDay     Int?
+  thresholdDays   Int?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum PayrollStatus {
+  DRAFT
+  APPROVED
+  PAID
+}
+
+model Payroll {
+  id          Int           @id @default(autoincrement())
+
+  userId      Int
+  user        User          @relation("PayrollUser",fields: [userId], references: [id])
+
+  approveUserId      Int
+  approveUser        User          @relation("PayrollApproveUser", fields: [approveUserId], references: [id])
+
+  companyId   Int
+  company     Company       @relation(fields: [companyId], references: [id])
+
+  branchId    Int?
+  branch      Branch?       @relation(fields: [branchId], references: [id])
+
+  month       Int           // 1–12
+  year        Int
+
+  // Salary breakdown
+  baseSalary        Decimal @db.Decimal(12, 2)
+  lateDeduction     Decimal @db.Decimal(12, 2) @default(0)
+  earlyLeaveDeduction Decimal @db.Decimal(12, 2) @default(0)
+  overtime          Decimal @db.Decimal(12, 2) @default(0)
+  bonus             Decimal @db.Decimal(12, 2) @default(0)
+  deduction         Decimal @db.Decimal(12, 2) @default(0)
+  leaveDeduction    Decimal @db.Decimal(12, 2) @default(0)
+  netSalary         Decimal @db.Decimal(12, 2)
+  totalDeductions   Decimal @db.Decimal(12, 2)
+  // Summary counts
+  totalWorkingDays  Int     @default(0)
+  presentDays       Int     @default(0)
+  absentDays        Int     @default(0)
+  halfDays          Int     @default(0)
+  leaveDays         Decimal @db.Decimal(4, 1) @default(0)
+  lateTotalMinutes  Int     @default(0)
+  earlyLeaveTotalMinutes  Int     @default(0)
+  overtimeTotalMinutes Int  @default(0)
+  overtimeDays      Int     @default(0)
+
+  status      PayrollStatus @default(DRAFT)
+  note        String?
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([userId, month, year])  // one payroll per employee per month
+  @@index([companyId])
+  @@index([branchId])
+  @@index([month, year])
 }

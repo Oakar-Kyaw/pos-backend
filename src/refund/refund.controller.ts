@@ -12,6 +12,7 @@ import {
 import { RefundService } from './refund.service';
 import { CreateRefundDto } from './dto/create-refund.dto';
 import { UpdateRefundDto } from './dto/update-refund.dto';
+import { isAdmin, isManager } from 'src/utils/check-user-role';
 
 @Controller('api/v1/refunds')
 export class RefundController {
@@ -32,16 +33,17 @@ export class RefundController {
 
   // ================= FIND ALL =================
   @Get()
-  findAll(@Req() req, @Query('page') page = '1', @Query('limit') limit = '10') {
-    const { id: userId, companyId, branchId } = req.user;
-
-    return this.refundService.findAll(
-      userId,
-      companyId,
-      branchId,
-      +page,
-      +limit,
-    );
+  findAll(
+    @Req() req,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+    @Query('filterUserId') filterUserId,
+  ) {
+    const { id: userId, companyId, branchId, role } = req.user;
+    //if not admin and manager , just see only his refund voucher
+    let id = !(isAdmin(role) || isManager(role)) ? userId : undefined;
+    if (filterUserId) id = filterUserId;
+    return this.refundService.findAll(id, companyId, branchId, +page, +limit);
   }
 
   // ================= FIND ONE =================

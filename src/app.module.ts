@@ -21,6 +21,7 @@ import { Keyv } from 'keyv';
 import { CacheableMemory } from 'cacheable';
 import { CacheService } from './cache-service/cache-service.service';
 import { HrRuleModule } from './hr-rule/hr-rule.module';
+import { PayrollModule } from './payroll/payroll.module';
 
 const redisUrl = new URL(process.env.REDIS_URL!);
 const redisConnection = {
@@ -69,6 +70,7 @@ const redisConnection = {
     RefundModule,
     AttendancesModule,
     HrRuleModule,
+    PayrollModule,
   ],
   controllers: [AppController],
   providers: [AppService, CacheService],

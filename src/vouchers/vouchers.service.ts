@@ -2,15 +2,17 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import { CreateVoucherDto } from './dto/create-voucher.dto';
 import { UpdateVoucherDto } from './dto/update-voucher.dto';
 import { FileUpload } from 'src/utils/file-upload';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { CreateRepaymentDto } from './dto/create-repayment.dto';
+import { isAdmin, isManager } from 'src/utils/check-user-role';
 
 @Injectable()
 export class VouchersService {
@@ -133,9 +135,20 @@ export class VouchersService {
     limit = 10,
     search?: string,
     existDebt?: boolean,
+    startDate?: Date,
+    endDate?: Date,
   ) {
     const page = pageNumber < 1 ? 1 : pageNumber; // ensure minimum 1
     const skip = (page - 1) * limit;
+    // Ensure endDate defaults to today if not provided
+    const today = new Date();
+    endDate = endDate ? new Date(endDate) : today;
+
+    // If startDate is after endDate, reset startDate to endDate
+    if (startDate && startDate > endDate) {
+      startDate = endDate;
+    }
+
     let parsedDate: Date | null = null;
     let isValidDate = false;
     //console.log('debt is ', existDebt);
@@ -147,12 +160,20 @@ export class VouchersService {
         isValidDate = true;
       }
     }
-
+    console.log('start date and end date ', startDate, endDate);
     const where: Prisma.VoucherWhereInput = {
-      // userId,
+      userId,
       companyId,
       ...(branchId && { branchId }),
       isDeleted: false,
+      ...(startDate && endDate
+        ? {
+            createdAt: {
+              gte: new Date(startDate),
+              lt: new Date(endDate.getTime() + 24 * 60 * 60 * 1000),
+            },
+          }
+        : {}),
       ...(existDebt !== undefined && { existDebt }),
       ...(search && {
         OR: [
@@ -239,12 +260,10 @@ export class VouchersService {
   }
 
   // ================= FIND ONE =================
-  async findOne(id: number, userId: number, companyId: number) {
+  async findOne(id: number) {
     const voucher = await this.prisma.voucher.findFirst({
       where: {
         id,
-        // userId,
-        companyId,
         isDeleted: false,
       },
       include: {
@@ -281,7 +300,7 @@ export class VouchersService {
     userId: number,
     companyId: number,
   ) {
-    await this.findOne(id, userId, companyId);
+    await this.findOne(id);
 
     const subTotal = dto.items?.reduce(
       (sum, item) => sum + item.price * item.quantity,
@@ -329,8 +348,10 @@ export class VouchersService {
   }
 
   // ================= DELETE (SOFT DELETE) =================
-  async remove(id: number, userId: number, companyId: number) {
-    await this.findOne(id, userId, companyId);
+  async remove(id: number, role: Role) {
+    if (!(isAdmin(role) || isManager(role)))
+      throw new UnauthorizedException("Voucher can't be deleted");
+    await this.findOne(id);
 
     const deleted = await this.prisma.voucher.update({
       where: { id },
