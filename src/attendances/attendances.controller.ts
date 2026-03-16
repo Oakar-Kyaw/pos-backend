@@ -41,8 +41,9 @@ export class AttendancesController {
     @Req() req,
     @Query('page') page = '1',
     @Query('limit') limit = '10',
-    @Query('filterUserId') filterUserId,
-    @Query('date') date: string,
+    @Query('filterUserId') filterUserId?: number,
+    @Query('startDate') startDate?: Date,
+    @Query('endDate') endDate?: Date,
   ) {
     const { id: userId, companyId, branchId, role } = req.user;
     //if not admin and manager , just see only his attendance
@@ -52,10 +53,10 @@ export class AttendancesController {
       id,
       companyId,
       branchId,
-      date,
-      filterUserId,
       +page,
       +limit,
+      startDate,
+      endDate,
     );
   }
 

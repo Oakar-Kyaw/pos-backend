@@ -259,24 +259,42 @@ export class ProductService {
     page: number,
     limit: number,
     type?: string,
+    startDate?: Date,
+    endDate?: Date,
   ) {
     const skip = (page - 1) * limit;
+    const today = new Date();
+    endDate = endDate ? new Date(endDate) : today;
 
-    const whereCondition: any = {
+    // If startDate is after endDate, reset startDate to endDate
+    if (startDate && startDate > endDate) {
+      startDate = endDate;
+    }
+    const where: any = {
       companyId,
       isDeleted: false,
       ...(branchId && { branchId }),
+      ...(userId && { userId }),
     };
+
+    if (startDate && endDate) {
+      where.createdAt = {
+        ...(startDate && { gte: new Date(startDate) }),
+        ...(endDate && {
+          lt: new Date(endDate.getTime() + 24 * 60 * 60 * 1000),
+        }),
+      };
+    }
     //console.log('type is ', type);
     if (type === 'REQUESTED') {
-      whereCondition.type = 'REQUESTED';
+      where.type = 'REQUESTED';
     } else if (type) {
-      whereCondition.type = { not: 'REQUESTED' };
+      where.type = { not: 'REQUESTED' };
     }
 
     const [inventories, total] = await Promise.all([
       this.prisma.inventoryManagement.findMany({
-        where: whereCondition,
+        where,
         include: {
           user: true,
           branch: true,
@@ -293,7 +311,7 @@ export class ProductService {
       }),
 
       this.prisma.inventoryManagement.count({
-        where: whereCondition,
+        where: where,
       }),
     ]);
     // console.log('inver', inventories[0].items);
@@ -307,6 +325,22 @@ export class ProductService {
         total,
         totalPages: Math.ceil(total / limit),
       },
+    };
+  }
+
+  async deleteInventoryManagement(id: number) {
+    console.log('id is ', id);
+    const deleted = await this.prisma.inventoryManagement.update({
+      where: { id },
+      data: {
+        isDeleted: true,
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Product deleted successfully',
+      data: deleted,
     };
   }
 }

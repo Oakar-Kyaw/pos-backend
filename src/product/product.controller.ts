@@ -17,6 +17,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FileUpload } from 'src/utils/file-upload';
 import { CreateInventoryDto } from './dto/create-inventory-item';
+import { isAdmin, isManager } from 'src/utils/check-user-role';
 
 @Controller('api/v1/products')
 export class ProductController {
@@ -108,16 +109,28 @@ export class ProductController {
     @Query('page') page = '1',
     @Query('limit') limit = '10',
     @Query('type') type?: string,
+    @Query('filterUserId') filterUserId?: number,
+    @Query('startDate') startDate?: Date,
+    @Query('endDate') endDate?: Date,
   ) {
-    const { id: userId, companyId, branchId } = req.user;
-
+    const { id: userId, companyId, branchId, role } = req.user;
+    //if not admin and manager , just see only his attendance
+    let id = !(isAdmin(role) || isManager(role)) ? userId : undefined;
+    if (filterUserId) id = filterUserId;
     return this.productService.findAllInventoryManagement(
-      userId,
+      id,
       companyId,
       branchId,
       Number(page),
       Number(limit),
       type,
+      startDate,
+      endDate,
     );
+  }
+
+  @Delete('inventory/list/:id')
+  deleteExpireRequest(@Param('id') id: number) {
+    return this.productService.deleteInventoryManagement(id);
   }
 }

@@ -15,6 +15,7 @@ import { PayrollService } from './payroll.service';
 import { CalculatePayrollDto } from './dto/calculate-payroll.dto';
 import { CreatePayrollDto } from './dto/create-payroll.dto';
 import { UpdatePayrollDto } from './dto/update-payroll.dto';
+import { isAdmin, isManager } from 'src/utils/check-user-role';
 
 @Controller('api/v1/payrolls')
 export class PayrollController {
@@ -33,14 +34,17 @@ export class PayrollController {
     @Req() req,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
-    @Query('userId') userId?: string,
+    @Query('filterUserId') filterUserId?: number,
     @Query('month') month?: string,
     @Query('year') year?: string,
-    @Query('branchId') branchId?: string,
+    @Query('branchId') branchId?: number,
   ) {
-    const { id: requesterId, companyId } = req.user;
+    const { id: userId, companyId, role } = req.user;
+    //if not admin and manager , just see only his attendance
+    let id = !(isAdmin(role) || isManager(role)) ? userId : undefined;
+    if (filterUserId) id = filterUserId;
     return this.payrollService.findAll(
-      requesterId,
+      id,
       companyId,
       branchId ? +branchId : undefined,
       page,

@@ -37,13 +37,23 @@ export class RefundController {
     @Req() req,
     @Query('page') page = '1',
     @Query('limit') limit = '10',
-    @Query('filterUserId') filterUserId,
+    @Query('filterUserId') filterUserId?: number,
+    @Query('startDate') startDate?: Date,
+    @Query('endDate') endDate?: Date,
   ) {
     const { id: userId, companyId, branchId, role } = req.user;
     //if not admin and manager , just see only his refund voucher
     let id = !(isAdmin(role) || isManager(role)) ? userId : undefined;
     if (filterUserId) id = filterUserId;
-    return this.refundService.findAll(id, companyId, branchId, +page, +limit);
+    return this.refundService.findAll(
+      id,
+      companyId,
+      branchId,
+      +page,
+      +limit,
+      startDate,
+      endDate,
+    );
   }
 
   // ================= FIND ONE =================

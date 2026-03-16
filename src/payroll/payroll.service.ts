@@ -171,10 +171,11 @@ export class PayrollService {
       companyId,
       ...(branchId && { branchId }),
       ...(filterUserId && { userId: filterUserId }),
+      ...(userId && { userId }),
       ...(month && { month }),
       ...(year && { year }),
     };
-
+    console.log('wehre closu', whereClause);
     const [payrolls, total] = await Promise.all([
       this.prisma.payroll.findMany({
         where: whereClause,

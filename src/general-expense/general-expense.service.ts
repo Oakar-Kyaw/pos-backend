@@ -74,7 +74,7 @@ export class GeneralExpenseService {
     };
 
     // 📅 Date filtering
-    if (startDate || endDate) {
+    if (startDate && endDate) {
       where.date = {
         ...(startDate && { gte: new Date(startDate) }),
         ...(endDate && {

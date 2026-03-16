@@ -77,33 +77,55 @@ export class AttendancesService {
     userId: number,
     companyId: number,
     branchId: number,
-    date?: string,
-    filterUserId?: string,
     page = 1,
     limit = 10,
+    startDate?: Date,
+    endDate?: Date,
   ) {
     const skip = (page - 1) * limit;
+    const today = new Date();
+    endDate = endDate ? new Date(endDate) : today;
 
-    // 🔹 Calculate first and last day of the month if date exists
-    let dateFilter: { gte: Date; lte: Date } | undefined = undefined;
-    if (date) {
-      const inputDate = new Date(date);
-      const firstDay = new Date(
-        inputDate.getFullYear(),
-        inputDate.getMonth(),
-        1,
-      );
-      const lastDay = new Date(
-        inputDate.getFullYear(),
-        inputDate.getMonth() + 1,
-        0,
-        23,
-        59,
-        59,
-        999,
-      );
-      dateFilter = { gte: firstDay, lte: lastDay };
+    // If startDate is after endDate, reset startDate to endDate
+    if (startDate && startDate > endDate) {
+      startDate = endDate;
     }
+    const where: any = {
+      companyId,
+      isDeleted: false,
+      ...(branchId && { branchId }),
+      ...(userId && { userId }),
+    };
+
+    if (startDate && endDate) {
+      where.date = {
+        ...(startDate && { gte: new Date(startDate) }),
+        ...(endDate && {
+          lt: new Date(endDate.getTime() + 24 * 60 * 60 * 1000),
+        }),
+      };
+    }
+    console.log('where is: ', where);
+    // 🔹 Calculate first and last day of the month if date exists
+    // let dateFilter: { gte: Date; lte: Date } | undefined = undefined;
+    // if (date) {
+    //   const inputDate = new Date(date);
+    //   const firstDay = new Date(
+    //     inputDate.getFullYear(),
+    //     inputDate.getMonth(),
+    //     1,
+    //   );
+    //   const lastDay = new Date(
+    //     inputDate.getFullYear(),
+    //     inputDate.getMonth() + 1,
+    //     0,
+    //     23,
+    //     59,
+    //     59,
+    //     999,
+    //   );
+    //   dateFilter = { gte: firstDay, lte: lastDay };
+    // }
 
     // 🔹 Determine which userId to filter
     // let userFilter: number | undefined;
@@ -113,16 +135,16 @@ export class AttendancesService {
     //   userFilter = userId;
     // }
 
-    const whereClause: any = {
-      companyId,
-      ...(branchId && { branchId }),
-      ...(userId !== undefined && { userId }),
-      ...(dateFilter && { date: dateFilter }),
-    };
+    // const whereClause: any = {
+    //   companyId,
+    //   ...(branchId && { branchId }),
+    //   ...(userId !== undefined && { userId }),
+    //   ...(dateFilter && { date: dateFilter }),
+    // };
 
     const [attendances, total] = await Promise.all([
       this.prisma.attendance.findMany({
-        where: whereClause,
+        where,
         include: {
           user: true,
         },
@@ -131,7 +153,7 @@ export class AttendancesService {
         take: limit,
       }),
       this.prisma.attendance.count({
-        where: whereClause,
+        where,
       }),
     ]);
 
@@ -362,8 +384,11 @@ export class AttendancesService {
   async remove(id: number, userId: number, companyId: number) {
     await this.findOne(id, userId, companyId);
 
-    const deleted = await this.prisma.attendance.delete({
+    const deleted = await this.prisma.attendance.update({
       where: { id },
+      data: {
+        isDeleted: true,
+      },
     });
 
     return {

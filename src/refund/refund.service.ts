@@ -89,17 +89,36 @@ export class RefundService {
     branchId: number,
     page: number,
     limit: number,
+    startDate?: Date,
+    endDate?: Date,
   ) {
     const skip = (page - 1) * limit;
+    const today = new Date();
+    endDate = endDate ? new Date(endDate) : today;
+
+    // If startDate is after endDate, reset startDate to endDate
+    if (startDate && startDate > endDate) {
+      startDate = endDate;
+    }
+    const where: any = {
+      companyId,
+      isDeleted: false,
+      ...(branchId && { branchId }),
+      ...(userId && { userId }),
+    };
+
+    if (startDate && endDate) {
+      where.createdAt = {
+        ...(startDate && { gte: new Date(startDate) }),
+        ...(endDate && {
+          lt: new Date(endDate.getTime() + 24 * 60 * 60 * 1000),
+        }),
+      };
+    }
     console.log('user is ', userId);
     const [refunds, total] = await Promise.all([
       this.prisma.refund.findMany({
-        where: {
-          companyId,
-          ...(branchId && { branchId }),
-          ...(userId && { userId }),
-          isDeleted: false,
-        },
+        where,
         include: {
           paymentData: true,
           refundItems: {
