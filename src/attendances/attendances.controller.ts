@@ -24,12 +24,17 @@ export class AttendancesController {
 
   // ================= CREATE =================
   @Post()
-  create(@Req() req, @Body() createAttendanceDto: CreateAttendanceDto) {
-    const { id: userId, companyId, branchId } = req.user;
-
+  create(@Req() req, @Body() createAttendanceDto: any) {
+    const { id: userId, companyId, branchId, role } = req.user;
+    //console.log('controller ', createAttendanceDto);
+    //if not admin and manager , just see only his voucher
+    let id = !(isAdmin(role) || isManager(role))
+      ? userId
+      : createAttendanceDto.userId;
+    //if filterUserId exist
     return this.attendancesService.create(
       createAttendanceDto,
-      userId,
+      id,
       companyId,
       branchId,
     );
@@ -49,6 +54,7 @@ export class AttendancesController {
     //if not admin and manager , just see only his attendance
     let id = !(isAdmin(role) || isManager(role)) ? userId : undefined;
     if (filterUserId) id = filterUserId;
+    console.log('id attendance', id);
     return this.attendancesService.findAll(
       id,
       companyId,

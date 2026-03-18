@@ -632,6 +632,12 @@ model Currency {
   @@index([companyId])
 }
 
+enum OvertimeType {
+  NONE
+  MINUTES
+  DAY
+}
+
 model Attendance {
   id Int @id @default(autoincrement())
 
@@ -659,6 +665,7 @@ model Attendance {
 
   // ✅ Overtime must be approved before payroll picks it up
   overtimeApproved  Boolean @default(false)
+  overtimeType      OvertimeType @default(NONE)
 
   status AttendanceStatus @default(PRESENT)
 

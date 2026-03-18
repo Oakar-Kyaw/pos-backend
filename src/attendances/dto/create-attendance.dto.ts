@@ -9,13 +9,18 @@ import {
   IsNumber,
   IsDate,
 } from 'class-validator';
-import { AttendanceStatus } from '@prisma/client';
+import { AttendanceStatus, OvertimeType } from '@prisma/client';
 
 export class CreateAttendanceDto {
   @Expose()
   @IsNotEmpty()
   @IsDate()
   readonly date: Date;
+
+  @Expose()
+  @IsOptional()
+  @IsInt()
+  readonly userId: number;
 
   @Expose()
   @IsOptional()
@@ -57,4 +62,14 @@ export class CreateAttendanceDto {
   @IsString()
   @Transform(({ value }) => (value ? String(value).trim() : null))
   readonly long?: string;
+
+  @Expose()
+  @IsOptional()
+  @IsInt()
+  readonly overtimeMinutes: number;
+
+  @Expose()
+  @IsOptional()
+  @IsEnum(OvertimeType)
+  readonly overtimeType?: OvertimeType;
 }

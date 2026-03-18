@@ -6,7 +6,7 @@ import {
 import { PrismaService } from 'prisma/prisma.service';
 import { CreateAttendanceDto } from './dto/create-attendance.dto';
 import { UpdateAttendanceDto } from './dto/update-attendance.dto';
-import { AttendanceStatus, Role } from '@prisma/client';
+import { AttendanceStatus, OvertimeType, Prisma, Role } from '@prisma/client';
 import { sanitized } from 'src/utils/sanatized-user';
 import * as XLSX from 'xlsx';
 import { excelDateToJSDate } from 'src/utils/convert-excel-date';
@@ -34,6 +34,7 @@ export class AttendancesService {
   ) {
     try {
       // 🔎 Validate user belongs to company
+      // console.log('dto', dto, companyId);
       const user = await this.prisma.user.findFirst({
         where: {
           id: userId,
@@ -45,7 +46,25 @@ export class AttendancesService {
       if (!user) {
         throw new NotFoundException('User not found');
       }
-      console.log('user ', dto.date, new Date(dto.date));
+      const existing = await this.findByDateAndUserFilter(
+        userId,
+        companyId,
+        branchId,
+        dto.date,
+      );
+      if (existing.data) {
+        throw new ForbiddenException('Attendance already exists for this date');
+      }
+      //  console.log('user ', dto.date, new Date(dto.date))
+
+      let lateMinutes = this.attendanceTimeService.getLateMinutes(
+        dto.checkIn!,
+        user.startTime!,
+      );
+      let earlyLeaveMinutes = this.attendanceTimeService.getEarlyLeaveMinutes(
+        dto.checkOut!,
+        user.endTime!,
+      );
 
       const attendance = await this.prisma.attendance.create({
         data: {
@@ -55,9 +74,16 @@ export class AttendancesService {
           date: new Date(dto.date),
           checkIn: dto.checkIn,
           checkOut: dto.checkOut,
-          workingMinutes: dto.workingMinutes,
+          workingMinutes: dto.workingMinutes ?? 0,
           status: dto.status,
           note: dto.note,
+          lateMinutes,
+          earlyLeaveMinutes,
+          isLate: lateMinutes > 0,
+          isEarlyLeave: earlyLeaveMinutes > 0,
+          overtimeMinutes: Number(dto.overtimeMinutes) ?? 0,
+          overtimeApproved: dto.overtimeType != OvertimeType.NONE,
+          overtimeType: dto.overtimeType,
         },
       });
 
@@ -418,6 +444,17 @@ export class AttendancesService {
       if (!user) {
         throw new NotFoundException('User not found');
       }
+
+      const existing = await this.findByDateAndUserFilter(
+        userId,
+        companyId,
+        branchId,
+        dto.date,
+      );
+      if (existing.data) {
+        throw new ForbiddenException('Attendance already exists for this date');
+      }
+
       const time = moment().tz(timezone).format();
       const checkInTime = this.attendanceTimeService.extractOffset(time);
 
@@ -466,7 +503,7 @@ export class AttendancesService {
   async findByDateAndUserFilter(
     userId: number,
     companyId: number,
-    branchId: number,
+    branchId: number | undefined,
     date: Date,
   ) {
     const startOfDay = new Date(date);
@@ -478,7 +515,8 @@ export class AttendancesService {
       where: {
         userId,
         companyId,
-        branchId,
+        ...(branchId && { branchId }),
+        isDeleted: false,
         date: {
           gte: startOfDay,
           lte: endOfDay,
