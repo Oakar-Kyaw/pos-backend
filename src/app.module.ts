@@ -22,6 +22,10 @@ import { CacheableMemory } from 'cacheable';
 import { CacheService } from './cache-service/cache-service.service';
 import { HrRuleModule } from './hr-rule/hr-rule.module';
 import { PayrollModule } from './payroll/payroll.module';
+import { LeaveModule } from './leave/leave.module';
+import { PlanModule } from './plan/plan.module';
+import { SubscriptionModule } from './subscription/subscription.module';
+import { PlanFeatureModule } from './plan-feature/plan-feature.module';
 
 const redisUrl = new URL(process.env.REDIS_URL!);
 const redisConnection = {
@@ -71,6 +75,10 @@ const redisConnection = {
     AttendancesModule,
     HrRuleModule,
     PayrollModule,
+    LeaveModule,
+    PlanModule,
+    SubscriptionModule,
+    PlanFeatureModule,
   ],
   controllers: [AppController],
   providers: [AppService, CacheService],

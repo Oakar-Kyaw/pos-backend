@@ -166,6 +166,7 @@ model GeneralExpense {
 
 model Company {
   id       Int     @id @default(autoincrement())
+  country  String  @default("MM")
   code     String?
   email    String  @unique
   name     String  @unique
@@ -178,6 +179,7 @@ model Company {
   payroll   Payroll[]
 
   products           Product[]
+  leaves              Leave[]
   vouchers           Voucher[]
   branches           Branch[]
   currencies         Currency[]
@@ -188,6 +190,7 @@ model Company {
   refunds            Refund[]
   Attendances        Attendance[]
   inventories        InventoryManagement[]
+  subscriptions      Subscription[]
   repay              Repay[]
   hrRules            HrRule[]
   createdAt DateTime @default(now())
@@ -213,6 +216,7 @@ model Branch {
   saleReports        SaleReport[] @relation("branchfromsalereport")
   transfers          Transfer[]   @relation("branchfromtransfer")
   payroll   Payroll[]
+  leaves              Leave[]
   generalExpenses GeneralExpense[] @relation("branchFromGeneralExpense")
   refunds         Refund[]
   inventories     InventoryManagement[]
@@ -261,6 +265,9 @@ model User {
   company   Company @relation(fields: [companyId], references: [id])
   payrolls        Payroll[] @relation("PayrollUser")
   approvedPayrolls Payroll[] @relation("PayrollApproveUser")
+  leaves     Leave[]    @relation("leaveUser")
+  approvedLeaves  Leave[] @relation("approvedUser")
+  subscriptions           Subscription[]
   vouchers                Voucher[]
   categories              Category[]
   products                Product[]
@@ -679,6 +686,44 @@ model Attendance {
   @@index([companyId])
   @@index([date])
 }
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Leave {
+  id Int @id @default(autoincrement())
+
+  userId Int
+  user   User @relation("leaveUser",fields: [userId], references: [id])
+
+  approvedId  Int?
+  approveUser User? @relation("approvedUser",fields: [approvedId], references: [id])
+
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id])
+
+  branchId Int?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  date DateTime
+
+  title String
+  status LeaveStatus
+
+  imageUrl String?
+
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+
+  @@index([userId])
+  @@index([approvedId])
+  @@index([companyId])
+  @@index([date])
+}
 
 model HrRule {
   id           Int       @id @default(autoincrement())
@@ -756,4 +801,81 @@ model Payroll {
   @@index([companyId])
   @@index([branchId])
   @@index([month, year])
+}
+
+model Plan {
+  id        Int      @id @default(autoincrement())
+
+  name      String   // "MONTHLY", "6_MONTHS", "YEARLY"
+  title     String   // UI display name
+
+  durationDays Int   // 30, 180, 365
+
+  priceMMK  Decimal  @db.Decimal(12, 2)
+  priceUSD  Decimal  @db.Decimal(12, 2)
+
+  discountPercent Int @default(0)
+
+  isPopular Boolean @default(false)
+
+  isActive Boolean @default(true)
+
+  existBranch   Boolean   @default(false)
+
+  subscriptions Subscription[]
+
+  planFeatures  PlanFeature[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  TRIAL
+}
+
+model Subscription {
+  id Int @id @default(autoincrement())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id])
+
+  planId Int
+  plan   Plan @relation(fields: [planId], references: [id])
+
+  startDate DateTime @default(now())
+  endDate   DateTime
+
+  isActive Boolean @default(true)
+
+  isTrial Boolean @default(false)
+
+  status SubscriptionStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+
+  @@index([userId])
+  @@index([companyId])
+}
+
+model PlanFeature {
+  id        Int    @id @default(autoincrement())
+
+  planId    Int
+  plan      Plan   @relation(fields: [planId], references: [id])
+
+  icon      String
+  key       String // "AI_REQUEST_LIMIT", "ALL_FEATURE_ACCESS"
+  value     String // "10", "true"
+
+  createdAt DateTime @default(now())
 }
