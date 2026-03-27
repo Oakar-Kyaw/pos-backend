@@ -190,6 +190,7 @@ model Company {
   refunds            Refund[]
   Attendances        Attendance[]
   inventories        InventoryManagement[]
+  subscriptionPayments  SubscriptionPayment[]
   subscriptions      Subscription[]
   repay              Repay[]
   hrRules            HrRule[]
@@ -272,6 +273,7 @@ model User {
   categories              Category[]
   products                Product[]
   Attendances             Attendance[]
+  subscriptionPayments  SubscriptionPayment[]
   saleUserReports   SaleReport[]   @relation("saleuserfromsalereport")
   saleUserTransfers Transfer[]    @relation("saleuserfromtransfer")
   generalExpenses GeneralExpense[] @relation("userFromGeneralExpense")
@@ -865,6 +867,22 @@ model Subscription {
 
   @@index([userId])
   @@index([companyId])
+}
+
+model SubscriptionPayment {
+  id        Int      @id @default(autoincrement())
+  amount    Int      @default(0)
+
+  userId      Int
+  user        User          @relation(fields: [userId], references: [id])
+
+  companyId   Int
+  company     Company       @relation(fields: [companyId], references: [id])
+
+  imageUrl    String? 
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 }
 
 model PlanFeature {

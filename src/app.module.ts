@@ -26,6 +26,7 @@ import { LeaveModule } from './leave/leave.module';
 import { PlanModule } from './plan/plan.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { PlanFeatureModule } from './plan-feature/plan-feature.module';
+import { SubscriptionPaymentModule } from './subscription-payment/subscription-payment.module';
 
 const redisUrl = new URL(process.env.REDIS_URL!);
 const redisConnection = {
@@ -79,6 +80,7 @@ const redisConnection = {
     PlanModule,
     SubscriptionModule,
     PlanFeatureModule,
+    SubscriptionPaymentModule,
   ],
   controllers: [AppController],
   providers: [AppService, CacheService],
