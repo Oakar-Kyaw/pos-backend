@@ -176,6 +176,7 @@ model Company {
   lat      String?
   long     String?
   type     CompanyType    @default(SHOP)
+  isTrial   Boolean       @default(true)
   payroll   Payroll[]
 
   products           Product[]
@@ -857,9 +858,9 @@ model Subscription {
 
   isActive Boolean @default(true)
 
-  isTrial Boolean @default(false)
-
   status SubscriptionStatus @default(ACTIVE)
+
+  subscriptionPayments  SubscriptionPayment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -867,6 +868,11 @@ model Subscription {
 
   @@index([userId])
   @@index([companyId])
+}
+
+enum SubscriptionPaymentType {
+  CARD 
+  EWALLET
 }
 
 model SubscriptionPayment {
@@ -880,6 +886,11 @@ model SubscriptionPayment {
   company     Company       @relation(fields: [companyId], references: [id])
 
   imageUrl    String? 
+
+  type        SubscriptionPaymentType @default(EWALLET)
+
+  subscriptionId  Int         
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt

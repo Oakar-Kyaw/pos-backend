@@ -1,5 +1,5 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import sharp from 'sharp';
 
 @Injectable()
@@ -30,22 +30,31 @@ export class FileUpload {
     file: Express.Multer.File,
     { folderName }: { folderName?: String },
   ): Promise<string> {
-    const optimized = await sharp(file.buffer).webp({ quality: 90 }).toBuffer();
-    const folder = folderName ?? 'products';
-    const fileName = `${folder}/${Date.now()}-${file.originalname}.webp`;
-    await this.r2.send(
-      new PutObjectCommand({
-        Bucket: process.env.CLOUDFLARE_R2_BUCKET!,
-        Key: fileName,
-        Body: optimized,
-        ContentType: 'image/webp',
-      }),
-    );
-    // console.log(
-    //   'upload uis ',
-    //   file,
-    //   `${process.env.CLOUDFLARE_R2_PUBLIC_URL}/${fileName}`,
-    // );
-    return `${process.env.CLOUDFLARE_R2_PUBLIC_URL}/${fileName}`;
+    try {
+      const optimized = await sharp(file.buffer)
+        .webp({ quality: 90 })
+        .toBuffer();
+      const folder = folderName ?? 'products';
+      const fileName = `${folder}/${Date.now()}-${file.originalname}.webp`;
+      await this.r2.send(
+        new PutObjectCommand({
+          Bucket: process.env.CLOUDFLARE_R2_BUCKET!,
+          Key: fileName,
+          Body: optimized,
+          ContentType: 'image/webp',
+        }),
+      );
+      // console.log(
+      //   'upload uis ',
+      //   file,
+      //   `${process.env.CLOUDFLARE_R2_PUBLIC_URL}/${fileName}`,
+      // );
+      return `${process.env.CLOUDFLARE_R2_PUBLIC_URL}/${fileName}`;
+    } catch (error) {
+      console.error('⚠️ Invalid image upload:', error.message);
+      throw new BadRequestException(
+        'Uploaded image is corrupted or unsupported',
+      );
+    }
   }
 }
