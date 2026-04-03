@@ -813,6 +813,7 @@ model Plan {
   title     String   // UI display name
 
   durationDays Int   // 30, 180, 365
+  month      Int    @default(1)
 
   priceMMK  Decimal  @db.Decimal(12, 2)
   priceUSD  Decimal  @db.Decimal(12, 2)
