@@ -27,6 +27,7 @@ import { PlanModule } from './plan/plan.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { PlanFeatureModule } from './plan-feature/plan-feature.module';
 import { SubscriptionPaymentModule } from './subscription-payment/subscription-payment.module';
+import { SuperAdminPhoneNumberModule } from './super-admin-phone-number/super-admin-phone-number.module';
 
 const redisUrl = new URL(process.env.REDIS_URL!);
 const redisConnection = {
@@ -81,6 +82,7 @@ const redisConnection = {
     SubscriptionModule,
     PlanFeatureModule,
     SubscriptionPaymentModule,
+    SuperAdminPhoneNumberModule,
   ],
   controllers: [AppController],
   providers: [AppService, CacheService],

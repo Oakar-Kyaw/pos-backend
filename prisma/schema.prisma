@@ -909,3 +909,12 @@ model PlanFeature {
 
   createdAt DateTime @default(now())
 }
+
+model SuperAdminPhoneNumber {
+  id        Int    @id @default(autoincrement())
+
+  phoneNumber String  
+  name        String  @default("Oakar Kyaw")
+
+  createdAt DateTime @default(now())
+}

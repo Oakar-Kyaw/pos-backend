@@ -6,6 +6,8 @@ import {
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
 import { PrismaService } from 'prisma/prisma.service';
+import { Decimal } from '@prisma/client/runtime/client';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class SubscriptionService {
@@ -80,6 +82,47 @@ export class SubscriptionService {
 
   findAll() {
     return `This action returns all subscription`;
+  }
+
+  async findCompanyCurrentSubscription({ companyId }: { companyId: number }) {
+    let data: { planName: string; usdAmount: Decimal; mmkAmount: Decimal };
+    const checkCompanySubcription = await this.prisma.subscription.findMany({
+      where: {
+        companyId,
+      },
+      orderBy: {
+        endDate: 'desc',
+      },
+      include: {
+        plan: true,
+      },
+    });
+    let isTrail = await this.prisma.company.findUnique({
+      where: {
+        id: companyId,
+        isTrial: true,
+      },
+    });
+
+    if (isTrail && checkCompanySubcription.length === 0) {
+      data = {
+        planName: '14 day trial subscription plan',
+        usdAmount: Prisma.Decimal(0.0),
+        mmkAmount: Prisma.Decimal(0.0),
+      };
+    } else {
+      data = {
+        planName: checkCompanySubcription[0].plan.name,
+        usdAmount: checkCompanySubcription[0].plan.priceUSD,
+        mmkAmount: checkCompanySubcription[0].plan.priceMMK,
+      };
+    }
+
+    return {
+      success: true,
+      data,
+      message: 'Company Current Subscription',
+    };
   }
 
   findOne(id: number) {

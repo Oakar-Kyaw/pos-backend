@@ -49,6 +49,15 @@ export class SubscriptionController {
     return this.subscriptionService.findAll();
   }
 
+  // ================= FIND ALL =================
+  @Get('company/current-subscription')
+  findCompanyCurrentPlan(@Req() req) {
+    const { companyId } = req.user;
+    return this.subscriptionService.findCompanyCurrentSubscription({
+      companyId,
+    });
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.subscriptionService.findOne(+id);
