@@ -97,7 +97,7 @@ export class SubscriptionService {
         plan: true,
       },
     });
-    let isTrail = await this.prisma.company.findUnique({
+    const isTrail = await this.prisma.company.findUnique({
       where: {
         id: companyId,
         isTrial: true,
