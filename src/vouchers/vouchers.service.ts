@@ -31,7 +31,7 @@ export class VouchersService {
     files: Express.Multer.File[],
   ) {
     try {
-      //console.log('dto is: ', dto);
+      console.log('dto is: ', dto);
       // 🔥 calculate totals securely (do NOT trust frontend)
       const subTotal = dto.items.reduce(
         (sum, item) => sum + item.price * item.quantity,

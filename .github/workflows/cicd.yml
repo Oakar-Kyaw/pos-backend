@@ -315,5 +315,9 @@ jobs:
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           script: |
             cd /home/ubuntu/bk
-            sudo pm2 restart ecosystem.config.js || sudo pm2 start ecosystem.config.js
-            echo "🔥 Deployment completed successfully! testing"
+
+            sudo docker build -t megasmartcart/pos-backend:latest .
+
+            sudo docker run -d -p 4001:4001 megasmartcart/pos-backend:latest
+          # sudo pm2 restart ecosystem.config.js || sudo pm2 start ecosystem.config.js
+          # echo "🔥 Deployment completed successfully! testing"
