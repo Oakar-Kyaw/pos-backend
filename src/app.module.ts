@@ -48,7 +48,9 @@ import { RedisModule } from './utils/redis/redis.module';
     //bull service
     BullModule.forRoot({
       connection: {
-        url: process.env.REDIS_URL,
+        host: process.env.REDIS_HOST,
+        port: Number(process.env.REDIS_PORT),
+        password: process.env.REDIS_PASSWORD,
       },
       defaultJobOptions: {
         priority: 1, // Set default priority
