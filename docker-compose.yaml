@@ -1,8 +1,6 @@
-version: '3.9'
-
 services:
   backend:
-    image: oakarkyaw/pos-backend:latest
+    image: ${DOCKER_USERNAME}/pos-backend:latest
     container_name: pos-backend
     restart: unless-stopped
     env_file:
@@ -10,8 +8,10 @@ services:
     ports:
       - '4001:4001'
     depends_on:
-      - redis
-      - rabbitmq
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   redis:
     image: redis:7.4-alpine
@@ -19,6 +19,13 @@ services:
     restart: unless-stopped
     ports:
       - '6380:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   rabbitmq:
     image: rabbitmq:4-management-alpine
@@ -27,3 +34,14 @@ services:
     ports:
       - '5673:5672'
       - '15673:15672'
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  redis_data:
+  rabbitmq_data:

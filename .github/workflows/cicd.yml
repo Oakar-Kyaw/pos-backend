@@ -1,272 +1,3 @@
-# name: CICD
-
-# on:
-#   push:
-#     branches: [ master ]
-
-# jobs:
-#   build-and-push:
-#     runs-on: ubuntu-latest
-
-#     steps:
-#       - name: Checkout
-#         uses: actions/checkout@v4
-
-#       - name: Set up Docker Buildx
-#         uses: docker/setup-buildx-action@v3
-
-#       - name: Login to Docker Hub
-#         uses: docker/login-action@v3
-#         with:
-#           username: ${{ secrets.DOCKER_USERNAME }}
-#           password: ${{ secrets.DOCKER_PASSWORD }}
-
-#       # =============================
-#       # Build USER service
-#       # =============================
-#       - name: Build user service
-#         run: |
-#           docker build \
-#             --build-arg APP_NAME=user \
-#             --build-arg APP_PORT=5001 \
-#             --build-arg DB_TYPE=postgres \
-#             -t oakarkyaw/user:latest .
-
-#       - name: Push user service
-#         run: docker push oakarkyaw/user:latest
-
-#       # =============================
-#       # Build order service
-#       # =============================
-#       - name: Build order service
-#         run: |
-#           docker build \
-#             --build-arg APP_NAME=order \
-#             --build-arg APP_PORT=5006 \
-#             --build-arg DB_TYPE=mongo \
-#             -t oakarkyaw/order:latest .
-
-#       - name: Push order service
-#         run: docker push oakarkyaw/order:latest
-
-#       # =============================
-#       # Build payment service
-#       # =============================
-#       - name: Build payment service
-#         run: |
-#           docker build \
-#             --build-arg APP_NAME=payment \
-#             --build-arg APP_PORT=5007 \
-#             --build-arg DB_TYPE=mongo \
-#             -t oakarkyaw/payment:latest .
-
-#       - name: Push payment service
-#         run: docker push oakarkyaw/payment:latest
-
-#       # =============================
-#       # Build PRODUCT service
-#       # =============================
-#       - name: Build product service
-#         run: |
-#           docker build \
-#             --build-arg APP_NAME=product \
-#             --build-arg APP_PORT=5004 \
-#             --build-arg DB_TYPE=postgres \
-#             -t oakarkyaw/product:latest .
-
-#       - name: Push product service
-#         run: docker push oakarkyaw/product:latest
-
-#       # =============================
-#       # Build AUTH service
-#       # =============================
-#       - name: Build auth service
-#         run: |
-#           docker build \
-#             --build-arg APP_NAME=auth \
-#             --build-arg APP_PORT=5003 \
-#             --build-arg DB_TYPE=postgres \
-#             -t oakarkyaw/auth:latest .
-
-#       - name: Push auth service
-#         run: docker push oakarkyaw/auth:latest
-
-#       # =============================
-#       # Build chat service
-#       # =============================
-#       - name: Build chat service
-#         run: |
-#           docker build \
-#             --build-arg APP_NAME=chat \
-#             --build-arg APP_PORT=5008 \
-#             --build-arg APP_SOCKET_PORT=5009 \
-#             --build-arg DB_TYPE=mongo \
-#             -t oakarkyaw/chat:latest .
-
-#       - name: Push chat service
-#         run: docker push oakarkyaw/chat:latest
-
-#       # =============================
-#       # Build notification service
-#       # =============================
-#       - name: Build notification service
-#         run: |
-#           docker build \
-#             --build-arg APP_NAME=notification \
-#             --build-arg APP_PORT=5005 \
-#             -t oakarkyaw/notification:latest .
-
-#       - name: Push notification service
-#         run: docker push oakarkyaw/notification:latest
-
-#   deploy:
-#     needs: build-and-push
-#     runs-on: ubuntu-latest
-
-#     steps:
-#       - name: Deploy to EC2 via SSH
-#         uses: appleboy/ssh-action@v1
-#         with:
-#           host: ${{ secrets.AWS_HOST }}
-#           username: ${{ secrets.AWS_USER }}
-#           key: ${{ secrets.AWS_SSH_KEY }}
-#           script: |
-#             cd /home/ubuntu/megasmart-backend
-
-#             # ==================================
-#             # Pull latest source (optional)
-#             # ==================================
-#             sudo git pull https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/megasmartcart/megasmart-backend.git
-
-#             # ==================================
-#             # Pull newest Docker images
-#             # ==================================
-#             docker pull oakarkyaw/user:latest
-#             docker pull oakarkyaw/product:latest
-#             docker pull oakarkyaw/auth:latest
-#             docker pull oakarkyaw/order:latest
-#             docker pull oakarkyaw/payment:latest
-#             docker pull oakarkyaw/chat:latest
-#             docker pull oakarkyaw/notification:latest
-#             # ==================================
-#             # Stop & remove existing containers
-#             # ==================================
-#             docker stop user || true
-#             docker rm user || true
-
-#             docker stop product || true
-#             docker rm product || true
-
-#             docker stop auth || true
-#             docker rm auth || true
-
-#             docker stop order || true
-#             docker rm order || true
-
-#             docker stop payment || true
-#             docker rm payment || true
-
-#             docker stop chat || true
-#             docker rm chat || true
-
-#             docker stop notification || true
-#             docker rm notification || true
-
-#             # docker stop notification || true
-#             # docker rm notification || true
-#             # ==================================
-#             # Run updated containers (using existing .env)
-#             # ==================================
-
-#             # User service
-#             docker run -d \
-#               --name user \
-#               --env-file /home/ubuntu/megasmart-backend/.env \
-#               -p 5001:5001 \
-#               -v /home/ubuntu/megasmart-backend/logs/user:/var/log/nestapp \
-#               --network ecom \
-#               oakarkyaw/user:latest
-
-#             # Product service
-#             docker run -d \
-#               --name product \
-#               --env-file /home/ubuntu/megasmart-backend/.env \
-#               -p 5004:5004 \
-#               -v /home/ubuntu/megasmart-backend/logs/product:/var/log/nestapp \
-#               --network ecom \
-#               oakarkyaw/product:latest
-
-#             # Order service
-#             docker run -d \
-#               --name order \
-#               --env-file /home/ubuntu/megasmart-backend/.env \
-#               -p 5006:5006 \
-#               -v /home/ubuntu/megasmart-backend/logs/order:/var/log/nestapp \
-#               --network ecom \
-#               oakarkyaw/order:latest
-
-#             # Payment service
-#             docker run -d \
-#               --name payment \
-#               --env-file /home/ubuntu/megasmart-backend/.env \
-#               -p 5007:5007 \
-#               -v /home/ubuntu/megasmart-backend/logs/payment:/var/log/nestapp \
-#               --network ecom \
-#               oakarkyaw/payment:latest
-
-#             # Auth service
-#             docker run -d \
-#               --name auth \
-#               --env-file /home/ubuntu/megasmart-backend/.env \
-#               -p 5003:5003 \
-#               -v /home/ubuntu/megasmart-backend/logs/auth:/var/log/nestapp \
-#               --network ecom \
-#               oakarkyaw/auth:latest
-
-#             # Chat service
-#             docker run -d --name chat --env-file /home/ubuntu/megasmart-backend/.env -p 5008:5008 -p 5009:5009 -v /home/ubuntu/megasmart-backend/logs/chat:/var/log/nestapp --network ecom oakarkyaw/chat:latest
-
-#             # Notification service
-#             docker run -d --name notification --env-file /home/ubuntu/megasmart-backend/.env -p 5005:5005 -v /home/ubuntu/megasmart-backend/logs/notification:/var/log/nestapp --network ecom oakarkyaw/notification:latest
-
-#             cleanup unused images
-#             docker image prune -af
-
-#             echo "🔥 Deployment completed successfully (using docker run)!"
-# name: CICD
-
-# on:
-#   push:
-#     branches: [master]
-
-# jobs:
-#   deploy:
-#     runs-on: ubuntu-latest
-
-#     steps:
-#       - name: Checkout
-#         uses: actions/checkout@v4
-
-#       - name: Setup Node.js
-#         uses: actions/setup-node@v3
-#         with:
-#           node-version: 20
-
-#       - name: Install dependencies
-#         run: npm install
-
-#       - name: Deploy to EC2 via SSH
-#         uses: appleboy/ssh-action@v1
-#         with:
-#           host: ${{ secrets.AWS_HOST }}
-#           username: ${{ secrets.AWS_USER }}
-#           key: ${{ secrets.AWS_SSH_KEY }}
-#           script: |
-#             cd /home/ubuntu/megasmart-backend
-#             sudo git pull https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/megasmartcart/megasmart-backend.git
-#             npm install
-#             npm run production:start
-#             echo "🔥 Deployment completed successfully!"
 name: CICD
 
 on:
@@ -283,20 +14,6 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      # Setup Node
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      # Install dependencies
-      - name: Install dependencies
-        run: npm install
-
-      # Build project
-      - name: Build project
-        run: npm run production:build
-
       # Login to Docker Hub
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -304,7 +21,8 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Build Docker image
+      # Build Docker image (npm install/build happens INSIDE the Dockerfile —
+      # no need to duplicate it on the runner)
       - name: Build Docker image
         run: |
           docker build -t ${{ secrets.DOCKER_USERNAME }}/pos-backend:latest .
@@ -314,6 +32,16 @@ jobs:
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/pos-backend:latest
 
+      # Sync docker-compose.yml to the server so it never drifts from the repo
+      - name: Copy docker-compose.yml to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.AWS_USER }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          source: 'docker-compose.yml'
+          target: '/home/ubuntu/bk'
+
       # Deploy
       - name: Deploy to Lightsail
         uses: appleboy/ssh-action@v1
@@ -322,10 +50,14 @@ jobs:
           username: ${{ secrets.AWS_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           script: |
+            set -e
             cd /home/ubuntu/bk
 
+            # DOCKER_USERNAME must match the image tag we just pushed above
+            export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
+
             docker compose pull
-            docker compose up -d 
+            docker compose up -d --wait
 
             docker image prune -f
 
