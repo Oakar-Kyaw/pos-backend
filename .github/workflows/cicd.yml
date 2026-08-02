@@ -323,7 +323,6 @@ jobs:
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           script: |
             sudo docker pull ${{ secrets.DOCKER_USERNAME }}/pos-backend:latest
-
             sudo docker stop pos-backend || true
             sudo docker rm pos-backend || true
 
