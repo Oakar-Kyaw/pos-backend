@@ -20,4 +20,4 @@ EXPOSE 4001
 
 ENTRYPOINT [ "dumb-init", "--" ]
 
-CMD [ "node", "src/main.js" ]
+CMD [ "node", "dist/src/main.js" ]
