@@ -31,6 +31,11 @@ COPY --chown=node:node --from=builder /home/node/app/dist ./dist
 COPY --chown=node:node --from=builder /home/node/app/node_modules/.prisma ./node_modules/.prisma
 COPY --chown=node:node --from=builder /home/node/app/prisma ./prisma
 
+# Pre-create runtime-writable dirs and make sure the node user actually
+# owns the app directory itself (WORKDIR is created by root, and
+# COPY --chown only affects the files it copies, not the directory)
+RUN mkdir -p uploads/temp && chown -R node:node /home/node/app
+
 EXPOSE 4001
 
 USER node
