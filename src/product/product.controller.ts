@@ -71,15 +71,32 @@ export class ProductController {
     return this.productService.findOne(+id, userId);
   }
 
+  @Get('barcode/:barcodeNo')
+  findByBarcode(@Req() req, @Param('barcodeNo') barcodeNo: string) {
+    const { companyId } = req.user;
+
+    return this.productService.findByBarcode(companyId, barcodeNo);
+  }
+
   @Patch(':id')
-  update(
+  @UseInterceptors(FileInterceptor('file'))
+  async update(
     @Req() req,
     @Param('id') id: string,
     @Body() updateProductDto: UpdateProductDto,
+    @UploadedFile() file: Express.Multer.File,
   ) {
-    const { id: userId } = req.user;
-
-    return this.productService.update(+id, updateProductDto, userId);
+    const { id: userId, companyId: companyId } = req.user;
+    const imageUrl = await this.uploader.uploadPhoto(file, {
+      folderName: 'products',
+    });
+    return this.productService.update(
+      +id,
+      updateProductDto,
+      userId,
+      companyId,
+      imageUrl,
+    );
   }
 
   @Delete(':id')

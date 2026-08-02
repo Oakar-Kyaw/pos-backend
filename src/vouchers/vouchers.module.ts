@@ -1,14 +1,15 @@
 import { Logger, Module, OnModuleInit } from '@nestjs/common';
 import { VouchersService } from './vouchers.service';
 import { VouchersController } from './vouchers.controller';
-import { PrismaService } from 'prisma/prisma.service';
 import { FileUpload } from 'src/utils/file-upload';
 import { BullModule, InjectQueue } from '@nestjs/bullmq';
 import { VoucherPhotoConsumer } from 'src/background/voucher-pic-background';
 import { Queue } from 'bullmq';
+import { PrismaModule } from 'prisma/prisma.module';
 
 @Module({
   imports: [
+    PrismaModule,
     BullModule.registerQueue({
       name: 'voucher-photos',
       defaultJobOptions: {
@@ -18,7 +19,7 @@ import { Queue } from 'bullmq';
     }),
   ],
   controllers: [VouchersController],
-  providers: [VouchersService, PrismaService, FileUpload, VoucherPhotoConsumer],
+  providers: [VouchersService, FileUpload, VoucherPhotoConsumer],
 })
 export class VouchersModule implements OnModuleInit {
   private readonly logger = new Logger(VouchersModule.name);

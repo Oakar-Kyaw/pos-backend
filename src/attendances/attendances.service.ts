@@ -10,7 +10,6 @@ import { AttendanceStatus, OvertimeType, Prisma, Role } from '@prisma/client';
 import { sanitized } from 'src/utils/sanatized-user';
 import * as XLSX from 'xlsx';
 import { excelDateToJSDate } from 'src/utils/convert-excel-date';
-import { CacheService } from 'src/cache-service/cache-service.service';
 import { Attendance } from '@prisma/client';
 import { AttendanceTimeService } from './attendance-time-service';
 import moment from 'moment-timezone';
@@ -21,7 +20,6 @@ import { MonthlyAttendanceGroupedResponse } from './attendance-interface/attenda
 export class AttendancesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly cacheService: CacheService,
     private readonly attendanceTimeService: AttendanceTimeService,
   ) {}
 

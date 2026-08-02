@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { RefundService } from './refund.service';
 import { RefundController } from './refund.controller';
-import { PrismaService } from 'prisma/prisma.service';
+import { PrismaModule } from 'prisma/prisma.module';
 
 @Module({
+  imports: [PrismaModule],
   controllers: [RefundController],
-  providers: [RefundService, PrismaService],
+  providers: [RefundService],
 })
 export class RefundModule {}

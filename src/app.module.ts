@@ -9,17 +9,12 @@ import { ProductModule } from './product/product.module';
 import { VouchersModule } from './vouchers/vouchers.module';
 import { PaymentDataModule } from './payment-data/payment-data.module';
 import { PaymentModule } from './payment/payment.module';
-import { BullModule, InjectQueue } from '@nestjs/bullmq';
+import { BullModule } from '@nestjs/bullmq';
 import { IncomeModule } from './income/income.module';
 import { SaleReportModule } from './sale-report/sale-report.module';
 import { GeneralExpenseModule } from './general-expense/general-expense.module';
 import { RefundModule } from './refund/refund.module';
 import { AttendancesModule } from './attendances/attendances.module';
-import { CacheModule } from '@nestjs/cache-manager';
-import KeyvRedis from '@keyv/redis';
-import { Keyv } from 'keyv';
-import { CacheableMemory } from 'cacheable';
-import { CacheService } from './cache-service/cache-service.service';
 import { HrRuleModule } from './hr-rule/hr-rule.module';
 import { PayrollModule } from './payroll/payroll.module';
 import { LeaveModule } from './leave/leave.module';
@@ -28,27 +23,20 @@ import { SubscriptionModule } from './subscription/subscription.module';
 import { PlanFeatureModule } from './plan-feature/plan-feature.module';
 import { SubscriptionPaymentModule } from './subscription-payment/subscription-payment.module';
 import { SuperAdminPhoneNumberModule } from './super-admin-phone-number/super-admin-phone-number.module';
-
-const redisUrl = new URL(process.env.REDIS_URL!);
-const redisConnection = {
-  host: redisUrl.hostname, // singapore-keyvalue.render.com
-  port: Number(redisUrl.port) || 6379, // 6379
-  password: redisUrl.password, // w5XSuG2cEcxLJAAWAbM0prIk2QazbYXc
-  tls: redisUrl.protocol === 'rediss:' ? {} : undefined, // enable TLS if rediss://
-};
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { redisStore } from 'cache-manager-ioredis-yet';
+import { redisFactory } from './utils/redis/redis-factory';
+import { RedisModule } from './utils/redis/redis.module';
 @Module({
   imports: [
-    CacheModule.registerAsync({
-      isGlobal: true,
-      useFactory: async () => ({
-        stores: [
-          new Keyv({
-            store: new CacheableMemory({ ttl: 60000, lruSize: 5000 }),
-          }),
-          new KeyvRedis(process.env.REDIS_URL),
-        ],
-      }),
-    }),
+    ConfigModule.forRoot({ isGlobal: true }),
+    // CacheModule.registerAsync({
+    //   isGlobal: true,
+    //   imports: [ConfigModule],
+    //   inject: [ConfigService],
+    //   useFactory: async (configService: ConfigService) =>
+    //     await redisFactory(configService),
+    // }),
     UserModule,
     CompanyModule,
     AuthModule,
@@ -83,8 +71,9 @@ const redisConnection = {
     PlanFeatureModule,
     SubscriptionPaymentModule,
     SuperAdminPhoneNumberModule,
+    RedisModule.forRoot(),
   ],
   controllers: [AppController],
-  providers: [AppService, CacheService],
+  providers: [AppService],
 })
 export class AppModule {}

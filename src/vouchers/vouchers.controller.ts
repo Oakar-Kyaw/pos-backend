@@ -18,6 +18,7 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { multerConfig } from 'src/utils/multer-config';
 import { CreateRepaymentDto } from './dto/create-repayment.dto';
 import { isAdmin, isManager } from 'src/utils/check-user-role';
+import { Public } from 'src/utils/public';
 
 @Controller('api/v1/vouchers')
 export class VouchersController {

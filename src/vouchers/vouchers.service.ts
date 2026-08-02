@@ -1,5 +1,6 @@
 import {
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -13,12 +14,16 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { CreateRepaymentDto } from './dto/create-repayment.dto';
 import { isAdmin, isManager } from 'src/utils/check-user-role';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class VouchersService {
   constructor(
     private readonly prisma: PrismaService,
     @InjectQueue('voucher-photos') private voucherPhotoQueue: Queue,
+    private readonly configService: ConfigService,
     readonly uploadFile: FileUpload,
   ) {}
 
@@ -40,19 +45,34 @@ export class VouchersService {
 
       const tax = dto?.tax ?? 0; // example 10% tax
       const deliveryFee = dto?.deliveryFee ?? 0;
+      const discountAmount = dto.discountAmount ?? 0;
+      const discountPercent = dto.discountPercent ?? 0;
       const total = subTotal + tax + deliveryFee;
+
+      // percentage-based discount, guarded against 0/negative
+      const percentDiscountAmount =
+        discountPercent > 0 ? total * (discountPercent / 100) : 0;
+
+      let totalWithTaxAndDiscount =
+        total - discountAmount - percentDiscountAmount;
+
+      // clamp so total never goes negative from an overly large discount
+      if (totalWithTaxAndDiscount < 0) {
+        totalWithTaxAndDiscount = 0;
+      }
+
       const totalPaymentAmount = dto.payments.reduce(
         (sum, p) => sum + p.amount,
         0,
       );
 
-      if (totalPaymentAmount > total) {
+      if (totalPaymentAmount > totalWithTaxAndDiscount) {
         throw new ForbiddenException(
           'Total payment amount cannot exceed total voucher amount',
         );
       }
 
-      const debt = total - totalPaymentAmount;
+      const debt = totalWithTaxAndDiscount - totalPaymentAmount;
 
       const voucherCode = await this.generateVoucherCode(companyId, dto.type);
       const voucher = await this.prisma.$transaction(async (tx) => {
@@ -66,7 +86,9 @@ export class VouchersService {
             deliveryFee,
             totalPaymentAmount: dto.totalPaymentAmount,
             remainingPaymentAmount: dto.remainingPaymentAmount,
-            total,
+            total: totalWithTaxAndDiscount,
+            discountAmount,
+            discountPercent,
             debt,
             existDebt: debt > 0,
             userId,
@@ -160,6 +182,7 @@ export class VouchersService {
         isValidDate = true;
       }
     }
+    console.log('config adata', this.configService.get<number>('REDIS_TTL'));
     console.log('start date and end date ', startDate, endDate);
     const where: Prisma.VoucherWhereInput = {
       userId,

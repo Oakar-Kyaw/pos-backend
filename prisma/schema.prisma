@@ -367,6 +367,8 @@ model Voucher {
 
   total         Decimal @default(0.00) @db.Decimal(12, 2)
   debt          Decimal @default(0.00) @db.Decimal(12, 2)
+  discountPercent Decimal @default(0.00) @db.Decimal(12, 2)
+  discountAmount Decimal @default(0.00) @db.Decimal(12, 2)
   existDebt     Boolean @default(false)
 
   note          String?

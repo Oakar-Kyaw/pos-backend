@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { SubscriptionService } from './subscription.service';
 import { SubscriptionController } from './subscription.controller';
-import { PrismaService } from 'prisma/prisma.service';
 import { FileUpload } from 'src/utils/file-upload';
+import { PrismaModule } from 'prisma/prisma.module';
 
 @Module({
+  imports: [PrismaModule],
   controllers: [SubscriptionController],
-  providers: [SubscriptionService, PrismaService, FileUpload],
+  providers: [SubscriptionService, FileUpload],
 })
 export class SubscriptionModule {}

@@ -47,6 +47,20 @@ export class CreateVoucherDto {
   @IsNumber()
   @Type(() => Number)
   @Min(0)
+  readonly discountPercent?: number;
+
+  @Expose()
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  @Min(0)
+  readonly discountAmount?: number;
+
+  @Expose()
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  @Min(0)
   readonly deliveryFee?: number;
 
   @Expose()

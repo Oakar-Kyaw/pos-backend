@@ -1,19 +1,13 @@
 import { Module } from '@nestjs/common';
 import { AttendancesService } from './attendances.service';
 import { AttendancesController } from './attendances.controller';
-import { PrismaService } from 'prisma/prisma.service';
-import { BullModule } from '@nestjs/bullmq';
-import { CacheService } from 'src/cache-service/cache-service.service';
 import { AttendanceTimeService } from './attendance-time-service';
+import { PrismaModule } from 'prisma/prisma.module';
 
 @Module({
+  imports: [PrismaModule],
   controllers: [AttendancesController],
-  providers: [
-    AttendancesService,
-    PrismaService,
-    CacheService,
-    AttendanceTimeService,
-  ],
+  providers: [AttendancesService, AttendanceTimeService],
   exports: [AttendancesService],
 })
 export class AttendancesModule {}
