@@ -322,21 +322,14 @@ jobs:
           username: ${{ secrets.AWS_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           script: |
-            echo "Pulling latest Docker image..."
-
             sudo docker pull ${{ secrets.DOCKER_USERNAME }}/pos-backend:latest
-
-            echo "Stopping old container..."
 
             sudo docker stop pos-backend || true
             sudo docker rm pos-backend || true
 
-            echo "Starting new container..."
-
             sudo docker run -d \
               --name pos-backend \
               --restart unless-stopped \
+              --env-file /home/ubuntu/bk/.env \
               -p 4001:4001 \
               ${{ secrets.DOCKER_USERNAME }}/pos-backend:latest
-
-            echo "Deployment completed successfully!"
