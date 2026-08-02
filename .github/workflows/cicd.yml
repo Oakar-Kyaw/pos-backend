@@ -14,6 +14,18 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      # Debug: confirm docker-compose.yml actually exists in the checked-out workspace
+      - name: Debug - list workspace files
+        run: |
+          echo "Workspace contents:"
+          ls -la
+          echo "---"
+          echo "Looking for docker-compose.yml:"
+          find . -iname "docker-compose*.yml" -not -path "./node_modules/*"
+          echo "---"
+          echo ".gitignore contents (if any):"
+          cat .gitignore 2>/dev/null || echo "(no .gitignore)"
+
       # Login to Docker Hub
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -33,13 +45,13 @@ jobs:
           docker push ${{ secrets.DOCKER_USERNAME }}/pos-backend:latest
 
       # Sync docker-compose.yml to the server so it never drifts from the repo
-      - name: Copy docker-compose.yml to server
+      - name: Copy docker-compose.yaml to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.AWS_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          source: 'docker-compose.yml'
+          source: 'docker-compose.yaml'
           target: '/home/ubuntu/bk'
 
       # Deploy
