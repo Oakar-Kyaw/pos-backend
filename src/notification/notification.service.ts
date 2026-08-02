@@ -42,7 +42,7 @@ export class NotificationService {
         apns: {
           payload: {
             aps: {
-              mutableContent: true, // VERY IMPORTANT
+              mutableContent: true,
             },
           },
           fcmOptions: {
@@ -59,6 +59,8 @@ export class NotificationService {
         },
 
         data: {
+          title,
+          body,
           icon: icon ?? '',
           type: type ?? 'GENERAL',
           imageUrl: imageUrl ?? '',
