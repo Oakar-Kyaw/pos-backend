@@ -271,53 +271,72 @@ name: CICD
 
 on:
   push:
-    branches: [master]
+    branches:
+      - master
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout code
-      - name: Checkout
+      # Checkout source
+      - name: Checkout source
         uses: actions/checkout@v4
 
-      # 2. Setup Node
+      # Setup Node
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      # 3. Install deps
+      # Install dependencies
       - name: Install dependencies
         run: npm install
 
-      # 5. Build project
+      # Build project
       - name: Build project
         run: npm run production:build
 
-      # 6. Upload build to EC2
-      - name: Copy files to Lightsail
-        uses: appleboy/scp-action@v0.1.7
+      # Login to Docker Hub
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
         with:
-          host: ${{ secrets.LIGHTSAIL_HOST }}
-          username: ubuntu
-          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          source: 'dist,package.json,ecosystem.config.js,node_modules'
-          target: '/home/ubuntu/bk'
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # 7. Restart app on Lightsail
-      - name: Restart PM2
+      # Build Docker image
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/pos-backend:latest .
+
+      # Push Docker image
+      - name: Push Docker image
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/pos-backend:latest
+
+      # Deploy to Lightsail
+      - name: Deploy to Lightsail
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.AWS_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           script: |
-            cd /home/ubuntu/bk
+            echo "Pulling latest Docker image..."
 
-            sudo docker build -t megasmartcart/pos-backend:latest .
+            sudo docker pull ${{ secrets.DOCKER_USERNAME }}/pos-backend:latest
 
-            sudo docker run -d -p 4001:4001 megasmartcart/pos-backend:latest
-            # sudo pm2 restart ecosystem.config.js || sudo pm2 start ecosystem.config.js
-            echo "🔥 Deployment completed successfully! testing"
+            echo "Stopping old container..."
+
+            sudo docker stop pos-backend || true
+            sudo docker rm pos-backend || true
+
+            echo "Starting new container..."
+
+            sudo docker run -d \
+              --name pos-backend \
+              --restart unless-stopped \
+              -p 4001:4001 \
+              ${{ secrets.DOCKER_USERNAME }}/pos-backend:latest
+
+            echo "Deployment completed successfully!"
