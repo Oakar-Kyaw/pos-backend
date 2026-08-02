@@ -1,0 +1,29 @@
+version: '3.9'
+
+services:
+  backend:
+    image: oakarkyaw/pos-backend:latest
+    container_name: pos-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - '4001:4001'
+    depends_on:
+      - redis
+      - rabbitmq
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: pos_redis
+    restart: unless-stopped
+    ports:
+      - '6380:6379'
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    container_name: pos_rabbitmq
+    restart: unless-stopped
+    ports:
+      - '5673:5672'
+      - '15673:15672'
