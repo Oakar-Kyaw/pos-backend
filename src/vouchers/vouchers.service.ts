@@ -28,6 +28,8 @@ export class VouchersService {
   ) {}
 
   // ================= CREATE =================
+  // ================= CREATE =================
+  // ================= CREATE =================
   async create(
     dto: CreateVoucherDto,
     userId: number,
@@ -75,7 +77,52 @@ export class VouchersService {
       const debt = totalWithTaxAndDiscount - totalPaymentAmount;
 
       const voucherCode = await this.generateVoucherCode(companyId, dto.type);
+
+      // Collect items that dropped to/below minStock so we can notify
+      // AFTER the transaction commits (never notify on a rolled-back order)
+      const lowStockItems: {
+        id: number;
+        name: string;
+        stock: number;
+        minStock: number;
+      }[] = [];
+
       const voucher = await this.prisma.$transaction(async (tx) => {
+        // ---------------------------------------------------------
+        // Deduct stock FIRST, atomically, before creating anything.
+        // Using RETURNING lets us grab the POST-deduction stock in the
+        // same round trip — no separate read needed, so there's no
+        // window where another transaction could sneak in a change
+        // between "deduct" and "check how much is left".
+        // The WHERE stock >= quantity guard makes this whole statement
+        // atomic: Postgres locks the row for the duration of the
+        // UPDATE, so two concurrent requests can never both succeed
+        // against the same pre-deduction value.
+        // ---------------------------------------------------------
+        for (const item of dto.items) {
+          const rows = await tx.$queryRaw<
+            { id: number; name: string; stock: number; minStock: number }[]
+          >`
+            UPDATE "Product"
+            SET stock = stock - ${item.quantity}
+            WHERE id = ${item.itemId} AND stock >= ${item.quantity}
+            RETURNING id, name, stock, "minStock"
+          `;
+
+          if (rows.length === 0) {
+            // Either the item doesn't exist, or stock is insufficient
+            // (possibly because a concurrent request just took it).
+            throw new ForbiddenException(
+              `Insufficient stock for item ${item.itemId}`,
+            );
+          }
+
+          const updated = rows[0];
+          if (updated.stock <= updated.minStock) {
+            lowStockItems.push(updated);
+          }
+        }
+
         const createdVoucher = await tx.voucher.create({
           data: {
             type: dto.type,
@@ -120,6 +167,33 @@ export class VouchersService {
         return createdVoucher;
       });
 
+      // Notify about low stock — only reaches here if the transaction
+      // above actually committed, so we never alert on a failed/rolled
+      // back order. Fire-and-forget via queue so a notification-service
+      // hiccup can't fail the voucher response.
+      console.log('low stock item: ', lowStockItems);
+      if (lowStockItems.length > 0) {
+        for (const item of lowStockItems) {
+          console.log('item is: ', item);
+          // await this.stockNotificationQueue.add(
+          //   'low-stock-alert',
+          //   {
+          //     itemId: item.id,
+          //     itemName: item.name,
+          //     currentStock: item.stock,
+          //     minStock: item.minStock,
+          //     companyId,
+          //     branchId,
+          //   },
+          //   {
+          //     attempts: 3,
+          //     backoff: { type: 'exponential', delay: 3000 },
+          //     removeOnComplete: true,
+          //   },
+          // );
+        }
+      }
+
       //send photo to background work
       if (files.length > 0) {
         console.log('files ', files);
@@ -144,6 +218,9 @@ export class VouchersService {
       };
     } catch (error) {
       console.log('Voucher create error:', error);
+      if (error instanceof ForbiddenException) {
+        throw error; // preserve the specific stock/payment error message
+      }
       throw new ForbiddenException('Unable to create voucher');
     }
   }

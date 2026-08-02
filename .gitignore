@@ -56,3 +56,5 @@ pids
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 /generated/prisma
+
+/pos-notification-be5a7-firebase-adminsdk-fbsvc-31164c5fe6.json

@@ -27,6 +27,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { redisStore } from 'cache-manager-ioredis-yet';
 import { redisFactory } from './utils/redis/redis-factory';
 import { RedisModule } from './utils/redis/redis.module';
+import { NotificationModule } from './notification/notification.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -74,6 +75,7 @@ import { RedisModule } from './utils/redis/redis.module';
     SubscriptionPaymentModule,
     SuperAdminPhoneNumberModule,
     RedisModule.forRoot(),
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -51,7 +51,7 @@ jobs:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.AWS_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          source: 'docker-compose.yaml'
+          source: 'docker-compose.yml'
           target: '/home/ubuntu/bk'
 
       # Deploy
