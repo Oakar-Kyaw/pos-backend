@@ -18,6 +18,7 @@ import {
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { CreateNotificationDeviceTokenDto } from './dto/create-notification-token.dto';
 
 @Controller('api/v1/users')
 //@UseGuards(AuthGuard) // Apply AuthGuard to all routes by default
@@ -168,5 +169,21 @@ export class UserController {
   async changePassword() {
     // @Body() updatePasswordDto: UpdateUserPassword
     //return this.userService.updatePassword(updatePasswordDto);
+  }
+
+  @Post('save-token')
+  async createNotificationDeviceToken(
+    @Req() req,
+    @Body() data: CreateNotificationDeviceTokenDto,
+  ) {
+    const { id: userId, companyId, branchId, role } = req.user;
+    return this.userService.createNotificationDeviceToken({
+      deviceToken: data.deviceToken,
+      isLogged: userId != null,
+      role,
+      userId,
+      companyId,
+      branchId,
+    });
   }
 }

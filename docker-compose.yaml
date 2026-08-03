@@ -1,7 +1,6 @@
 services:
   backend:
     image: ${DOCKER_USERNAME}/pos-backend:latest
-    container_name: pos-backend
     restart: unless-stopped
     env_file:
       - .env
@@ -13,9 +12,19 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  notification-worker:
+    image: ${DOCKER_USERNAME}/pos-notification-worker:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
   redis:
     image: redis:7.4-alpine
-    container_name: pos_redis
     restart: unless-stopped
     command: redis-server --port 6380 --requirepass ${REDIS_PASSWORD}
     ports:
@@ -31,7 +40,6 @@ services:
 
   rabbitmq:
     image: rabbitmq:4-management-alpine
-    container_name: pos_rabbitmq
     restart: unless-stopped
     ports:
       - '5673:5672'

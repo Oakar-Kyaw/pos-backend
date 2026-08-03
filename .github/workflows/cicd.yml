@@ -35,14 +35,25 @@ jobs:
 
       # Build Docker image (npm install/build happens INSIDE the Dockerfile —
       # no need to duplicate it on the runner)
-      - name: Build Docker image
+      - name: Build Docker image for server
         run: |
           docker build -t ${{ secrets.DOCKER_USERNAME }}/pos-backend:latest .
 
       # Push Docker image
-      - name: Push Docker image
+      - name: Push Docker image for server
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/pos-backend:latest
+
+      - name: Build Docker image for notification worker
+        run: |
+          docker build \
+            -f src/notification-worker/Dockerfile \
+            -t ${{ secrets.DOCKER_USERNAME }}/pos-notification-worker:latest \
+            .
+
+      - name: Push Docker image for notification worker
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/pos-notification-worker:latest
 
       # Sync docker-compose.yml to the server so it never drifts from the repo
       - name: Copy docker-compose.yaml to server

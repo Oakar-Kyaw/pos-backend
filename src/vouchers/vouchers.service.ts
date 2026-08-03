@@ -14,9 +14,9 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { CreateRepaymentDto } from './dto/create-repayment.dto';
 import { isAdmin, isManager } from 'src/utils/check-user-role';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import type { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
+import { ClientProxy } from '@nestjs/microservices';
+import { LowStockItems } from 'src/notification-worker/interface/low-stock.interface';
 
 @Injectable()
 export class VouchersService {
@@ -25,16 +25,16 @@ export class VouchersService {
     @InjectQueue('voucher-photos') private voucherPhotoQueue: Queue,
     private readonly configService: ConfigService,
     readonly uploadFile: FileUpload,
+    @Inject('WORKER_SERVICE') private readonly notificationClient: ClientProxy,
   ) {}
 
-  // ================= CREATE =================
-  // ================= CREATE =================
   // ================= CREATE =================
   async create(
     dto: CreateVoucherDto,
     userId: number,
     companyId: number,
     branchId: number,
+    language: string,
     files: Express.Multer.File[],
   ) {
     try {
@@ -76,18 +76,18 @@ export class VouchersService {
 
       const debt = totalWithTaxAndDiscount - totalPaymentAmount;
 
-      const voucherCode = await this.generateVoucherCode(companyId, dto.type);
+      // const voucherCode = await this.generateVoucherCode(companyId, dto.type);
 
       // Collect items that dropped to/below minStock so we can notify
       // AFTER the transaction commits (never notify on a rolled-back order)
-      const lowStockItems: {
-        id: number;
-        name: string;
-        stock: number;
-        minStock: number;
-      }[] = [];
+      const lowStockItems: LowStockItems[] = [];
 
       const voucher = await this.prisma.$transaction(async (tx) => {
+        const voucherCode = await this.generateVoucherCode({
+          type: 'SALE',
+          companyId,
+          tx,
+        });
         // ---------------------------------------------------------
         // Deduct stock FIRST, atomically, before creating anything.
         // Using RETURNING lets us grab the POST-deduction stock in the
@@ -101,12 +101,18 @@ export class VouchersService {
         // ---------------------------------------------------------
         for (const item of dto.items) {
           const rows = await tx.$queryRaw<
-            { id: number; name: string; stock: number; minStock: number }[]
+            {
+              id: number;
+              name: string;
+              stock: number;
+              minStock: number;
+              imageUrl: string;
+            }[]
           >`
             UPDATE "Product"
             SET stock = stock - ${item.quantity}
             WHERE id = ${item.itemId} AND stock >= ${item.quantity}
-            RETURNING id, name, stock, "minStock"
+            RETURNING id, name, stock, "minStock",  "photoUrl" AS "imageUrl"
           `;
 
           if (rows.length === 0) {
@@ -119,7 +125,12 @@ export class VouchersService {
 
           const updated = rows[0];
           if (updated.stock <= updated.minStock) {
-            lowStockItems.push(updated);
+            lowStockItems.push({
+              ...updated,
+              imageUrl: new URL(updated.imageUrl).toString(),
+              language,
+              userId,
+            });
           }
         }
 
@@ -172,26 +183,13 @@ export class VouchersService {
       // back order. Fire-and-forget via queue so a notification-service
       // hiccup can't fail the voucher response.
       console.log('low stock item: ', lowStockItems);
+      //if lowStockItem exists
       if (lowStockItems.length > 0) {
-        for (const item of lowStockItems) {
-          console.log('item is: ', item);
-          // await this.stockNotificationQueue.add(
-          //   'low-stock-alert',
-          //   {
-          //     itemId: item.id,
-          //     itemName: item.name,
-          //     currentStock: item.stock,
-          //     minStock: item.minStock,
-          //     companyId,
-          //     branchId,
-          //   },
-          //   {
-          //     attempts: 3,
-          //     backoff: { type: 'exponential', delay: 3000 },
-          //     removeOnComplete: true,
-          //   },
-          // );
-        }
+        this.notificationClient.emit('send_low_stock_alert_push_notification', {
+          userId,
+          items: lowStockItems,
+          language,
+        });
       }
 
       //send photo to background work
@@ -466,22 +464,30 @@ export class VouchersService {
       data: deleted,
     };
   }
-  private async generateVoucherCode(
-    companyId: number,
-    type: string,
-  ): Promise<string> {
-    const company = await this.prisma.company.findUnique({
-      where: { id: Number(companyId) },
+  private async generateVoucherCode({
+    tx,
+    companyId,
+    type,
+  }: {
+    tx: Prisma.TransactionClient;
+    companyId: number;
+    type: string;
+  }): Promise<string> {
+    const counter = await tx.voucherCounter.upsert({
+      where: {
+        companyId_type: {
+          companyId,
+          type,
+        },
+      },
+      create: { companyId, type, seq: 1 },
+      update: { seq: { increment: 1 } },
+      include: {
+        company: true,
+      },
     });
-    const count = await this.prisma.voucher.count({
-      where: { companyId },
-    });
-
-    const nextNumber = count + 1;
-
-    const padded = String(nextNumber).padStart(5, '0');
-
-    return `${company?.name.toUpperCase()}-${type.toUpperCase()}-${padded}`;
+    const prefix = type === 'SALE' ? 'SVC' : 'PVC';
+    return `${prefix}-${counter.company.name.toUpperCase()}-${counter.seq.toString().padStart(6, '0')}`;
   }
 
   async createRepayment(

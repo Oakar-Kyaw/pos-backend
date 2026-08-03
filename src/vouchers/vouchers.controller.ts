@@ -10,6 +10,7 @@ import {
   Query,
   UseInterceptors,
   UploadedFiles,
+  Headers,
 } from '@nestjs/common';
 import { VouchersService } from './vouchers.service';
 import { CreateVoucherDto } from './dto/create-voucher.dto';
@@ -18,8 +19,6 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { multerConfig } from 'src/utils/multer-config';
 import { CreateRepaymentDto } from './dto/create-repayment.dto';
 import { isAdmin, isManager } from 'src/utils/check-user-role';
-import { Public } from 'src/utils/public';
-
 @Controller('api/v1/vouchers')
 export class VouchersController {
   constructor(private readonly vouchersService: VouchersService) {}
@@ -31,6 +30,7 @@ export class VouchersController {
     @Req() req,
     @Body() createVoucherDto: CreateVoucherDto,
     @UploadedFiles() files: Express.Multer.File[],
+    @Headers('accept-language') language: string,
   ) {
     const { id: userId, companyId, branchId } = req.user;
 
@@ -39,6 +39,7 @@ export class VouchersController {
       userId,
       companyId,
       branchId,
+      language,
       files,
     );
   }

@@ -1,4 +1,4 @@
-import { Logger, Module, OnModuleInit } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UserModule } from './user/user.module';
@@ -23,21 +23,13 @@ import { SubscriptionModule } from './subscription/subscription.module';
 import { PlanFeatureModule } from './plan-feature/plan-feature.module';
 import { SubscriptionPaymentModule } from './subscription-payment/subscription-payment.module';
 import { SuperAdminPhoneNumberModule } from './super-admin-phone-number/super-admin-phone-number.module';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { redisStore } from 'cache-manager-ioredis-yet';
-import { redisFactory } from './utils/redis/redis-factory';
 import { RedisModule } from './utils/redis/redis.module';
-import { NotificationModule } from './notification/notification.module';
+import { ConfigModule } from '@nestjs/config';
+import { ClientsModule, Transport } from '@nestjs/microservices';
+import { RabbitMQModule } from './rabbitmq/rabbitmq.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    // CacheModule.registerAsync({
-    //   isGlobal: true,
-    //   imports: [ConfigModule],
-    //   inject: [ConfigService],
-    //   useFactory: async (configService: ConfigService) =>
-    //     await redisFactory(configService),
-    // }),
     UserModule,
     CompanyModule,
     AuthModule,
@@ -75,7 +67,7 @@ import { NotificationModule } from './notification/notification.module';
     SubscriptionPaymentModule,
     SuperAdminPhoneNumberModule,
     RedisModule.forRoot(),
-    NotificationModule,
+    RabbitMQModule,
   ],
   controllers: [AppController],
   providers: [AppService],

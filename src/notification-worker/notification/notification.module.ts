@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
-import { NotificationService } from './notification.service';
 import { NotificationController } from './notification.controller';
 import * as admin from 'firebase-admin';
 import { ConfigService } from '@nestjs/config';
+import { NotificationService } from './notification.service';
 
 @Module({
   controllers: [NotificationController],
   providers: [NotificationService],
+  exports: [NotificationService],
 })
 export class NotificationModule {
   constructor(private readonly configService: ConfigService) {

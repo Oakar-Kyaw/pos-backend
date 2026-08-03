@@ -7,6 +7,7 @@ import { PrismaService } from 'prisma/prisma.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { hashedPassword } from 'src/utils/hash-password';
+import { AccountType } from '@prisma/client';
 
 @Injectable()
 export class CompanyService {
@@ -34,28 +35,41 @@ export class CompanyService {
     }
     const { password, ...data } = createCompanyDto;
     const hashPassword = await hashedPassword(password);
-    console.log('before');
-    const company = await this.prisma.company.create({
-      data: {
-        ...data,
-      },
-    });
-    console.log('compan', company);
-    const user = await this.prisma.user.create({
-      data: {
-        email: company.email,
-        companyId: company.id,
-        password: hashPassword,
-        phone: company.phone,
-        role: 'POS',
-      },
-    });
-    console.log('user is ', user);
+    const result = await this.prisma.$transaction(async (tx) => {
+      const company = await tx.company.create({
+        data: {
+          ...data,
+        },
+      });
 
+      const user = await tx.user.create({
+        data: {
+          email: company.email,
+          companyId: company.id,
+          password: hashPassword,
+          phone: company.phone,
+          role: 'POS',
+        },
+      });
+
+      const cashAccount = await tx.paymentData.create({
+        data: {
+          accountName: `${company.name} CASH`,
+          accountType: AccountType.CASH,
+          userId: Number(user.id),
+          companyId: Number(company.id),
+        },
+      });
+
+      return { company, user, cashAccount };
+    });
+
+    console.log('company:', result.company);
+    console.log('user:', result.user);
     return {
       success: true,
       message: 'COMPANY CREATED',
-      data: company,
+      data: result.company,
     };
   }
 

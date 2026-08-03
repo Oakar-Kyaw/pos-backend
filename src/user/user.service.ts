@@ -1,10 +1,8 @@
 import {
   ConflictException,
-  Inject,
+  ForbiddenException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
-  UseInterceptors,
 } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -13,6 +11,7 @@ import { hashedPassword } from 'src/utils/hash-password';
 import { OAuth2Client } from 'google-auth-library';
 import { google } from 'googleapis';
 import { PrismaService } from 'prisma/prisma.service';
+import { Role } from '@prisma/client';
 
 @Injectable()
 export class UserService {
@@ -741,5 +740,53 @@ export class UserService {
         ([_, value]) => value !== null && value !== undefined && value !== '',
       ),
     ) as Partial<T>;
+  }
+
+  async createNotificationDeviceToken({
+    deviceToken,
+    isLogged,
+    role,
+    userId,
+    companyId,
+    branchId,
+  }: {
+    deviceToken: string;
+    isLogged: boolean;
+    role: Role;
+    userId?: number;
+    companyId?: number;
+    branchId?: number;
+  }) {
+    try {
+      const create = await this.prisma.notificationDeviceToken.upsert({
+        where: {
+          deviceToken,
+        },
+        create: {
+          deviceToken,
+          isLogged,
+          role,
+          ...(userId && { userId }),
+          ...(companyId && { companyId }),
+          ...(branchId && { branchId }),
+        },
+        update: {
+          isLogged,
+          role,
+          ...(userId && { userId }),
+          ...(companyId && { companyId }),
+          ...(branchId && { branchId }),
+        },
+      });
+
+      return {
+        success: true,
+        message: 'Create device token',
+        data: create,
+      };
+    } catch (error) {
+      console.error('Failed to create/update device token:', error);
+      throw new ForbiddenException('Unable to save device token');
+    }
   }
 }

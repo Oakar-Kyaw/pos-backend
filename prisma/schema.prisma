@@ -182,6 +182,7 @@ model Company {
   products           Product[]
   leaves              Leave[]
   vouchers           Voucher[]
+  voucherCounters    VoucherCounter[]
   branches           Branch[]
   currencies         Currency[]
   users              User[]
@@ -195,6 +196,7 @@ model Company {
   subscriptions      Subscription[]
   repay              Repay[]
   hrRules            HrRule[]
+  notificationDeviceTokens NotificationDeviceToken[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt @default(now())
 }
@@ -228,6 +230,8 @@ model Branch {
 
   users    User[]    @relation("UserBranch")
   vouchers Voucher[] @relation("VoucherBranch")
+  notificationDeviceTokens  NotificationDeviceToken[]
+  voucherCounters VoucherCounter[]
 
   @@index([companyId])
 }
@@ -281,12 +285,35 @@ model User {
   refunds Refund[]
   inventories    InventoryManagement[]
   repay   Repay[]
+  notifictionDeviceToken NotificationDeviceToken[] 
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   dateOfBirth DateTime?
 
   @@index([branchId])
+}
+
+model NotificationDeviceToken {
+  id    Int    @id @default(autoincrement())
+  deviceToken String  @unique
+
+  userId Int?
+  user   User? @relation(fields: [userId], references: [id])
+
+  branchId Int?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  companyId Int?
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  isLogged   Boolean  @default(false)
+  role       Role     @default(POS)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([deviceToken])
 }
 
 //////////////////////////////////////////////////////
@@ -398,13 +425,25 @@ model Voucher {
   @@index([createdAt])
 }
 
+model VoucherCounter {
+  id        Int    @id @default(autoincrement())
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId  Int?
+  branch    Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  type      String
+  seq       Int    @default(0)
+
+  @@unique([companyId, type])
+}
+
 //////////////////////////////////////////////////////
 // VOUCHER ITEM
 //////////////////////////////////////////////////////
 
 model VoucherItem {
   id Int @id @default(autoincrement())
-
+  isDeleted Boolean @default(false)
   voucherId Int
   voucher   Voucher @relation(fields: [voucherId], references: [id], onDelete: Cascade)
 
