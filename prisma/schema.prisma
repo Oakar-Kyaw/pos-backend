@@ -359,8 +359,8 @@ model Product {
   refundItems RefundItem[]
   inventoryItems  InventoryItem[]
 
-  categoryId Int
-  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId Int?
+  category   Category? @relation(fields: [categoryId], references: [id])
 
   userId Int
   user   User @relation(fields: [userId], references: [id])

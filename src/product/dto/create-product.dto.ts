@@ -80,7 +80,7 @@ export class CreateProductDto {
   // ===== Relations =====
 
   @Expose()
-  @IsNotEmpty()
+  @IsOptional()
   @IsInt()
   @Type(() => Number)
   readonly categoryId: number;
