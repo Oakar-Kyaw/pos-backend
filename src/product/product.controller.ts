@@ -89,7 +89,7 @@ export class ProductController {
     @Body() updateProductDto: UpdateProductDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    console.log('PATCH UPDATE API HIT');
+    console.log('PATCH UPDATE API HIT', updateProductDto);
     console.log('file:', file);
     const { id: userId, companyId: companyId } = req.user;
     let imageUrl: string | undefined;

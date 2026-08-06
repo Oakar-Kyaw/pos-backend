@@ -12,9 +12,9 @@ async function bootstrap() {
       whitelist: true, // remove unknown fields
       forbidNonWhitelisted: true, // throw error if extra fields sent
       transform: true, // auto transform types
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
+      // transformOptions: {
+      //   enableImplicitConversion: true,
+      // },
     }),
   );
 

@@ -75,6 +75,17 @@ export class CreateProductDto {
   @Expose()
   @IsOptional()
   @IsBoolean()
+  @Transform(({ value }) => {
+    console.log('isActive raw:', value, typeof value);
+
+    if (typeof value === 'boolean') return value;
+
+    if (typeof value === 'string') {
+      return value.toLowerCase() == 'true';
+    }
+
+    return value;
+  })
   readonly isActive?: boolean;
 
   // ===== Relations =====

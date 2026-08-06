@@ -98,7 +98,7 @@ export class ProductService {
         ],
       }),
     };
-    const { redisKey, redisProductCacheKey } = await this.getProductCacheKey({
+    const { redisKey } = await this.getProductCacheKey({
       companyId,
       skip,
       limit,
@@ -110,19 +110,26 @@ export class ProductService {
         where,
         include: { category: true },
         orderBy: { id: 'desc' },
+        skip,
+        take: limit,
       });
+
+      console.log('product search is ', products);
 
       return {
         success: true,
         message: 'Products fetched successfully',
         data: products,
         meta: {
-          total: products.length,
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
           isSearch: true,
         },
       };
     }
-
+    // console.log('uncache data are ');
     if (!cachedData) {
       const [data, sum] = await Promise.all([
         this.prisma.product.findMany({
@@ -157,7 +164,8 @@ export class ProductService {
         ttl,
       });
     } else {
-      // this.logger.log('Cache Exist', cachedData);
+      this.logger.log('Cache Exist');
+      //cachedData);
 
       products = cachedData['data'];
       total = cachedData['sum'];
@@ -173,7 +181,7 @@ export class ProductService {
       //   this.logger.log('Key does not exist in Redis.');
       // }
     }
-
+    // console.log('product are ', products);
     return {
       success: true,
       message: 'Products fetched successfully',
