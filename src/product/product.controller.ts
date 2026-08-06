@@ -35,9 +35,12 @@ export class ProductController {
   ) {
     //console.log('req.user ', req.user);
     const { id: userId, companyId: companyId } = req.user;
-    const imageUrl = await this.uploader.uploadPhoto(file, {
-      folderName: 'products',
-    });
+    let imageUrl: string | undefined;
+    if (file) {
+      imageUrl = await this.uploader.uploadPhoto(file, {
+        folderName: 'products',
+      });
+    }
     return this.productService.create(
       createProductDto,
       userId,
@@ -84,12 +87,18 @@ export class ProductController {
     @Req() req,
     @Param('id') id: string,
     @Body() updateProductDto: UpdateProductDto,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file?: Express.Multer.File,
   ) {
+    console.log('PATCH UPDATE API HIT');
+    console.log('file:', file);
     const { id: userId, companyId: companyId } = req.user;
-    const imageUrl = await this.uploader.uploadPhoto(file, {
-      folderName: 'products',
-    });
+    let imageUrl: string | undefined;
+    if (file) {
+      imageUrl = await this.uploader.uploadPhoto(file, {
+        folderName: 'products',
+      });
+    }
+
     return this.productService.update(
       +id,
       updateProductDto,

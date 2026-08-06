@@ -44,6 +44,9 @@ services:
     ports:
       - '5673:5672'
       - '15673:15672'
+    environment:
+      RABBITMQ_DEFAULT_USER: oakarkyaw
+      RABBITMQ_DEFAULT_PASS: oakarkyaw
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
