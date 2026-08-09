@@ -7,8 +7,15 @@ datasource db {
 }
 
 //////////////////////////////////////////////////////
-// ENUMS
+// ENUMS (alphabetical)
 //////////////////////////////////////////////////////
+
+enum AccountType {
+  CASH
+  BANK
+  CARD
+  EWALLET
+}
 
 enum AttendanceStatus {
   PRESENT
@@ -18,14 +25,19 @@ enum AttendanceStatus {
   HOLIDAY
 }
 
-enum Gender {
-  MALE
-  FEMALE
-}
-
 enum CompanyType {
   SHOP
   RESTAURANT
+}
+
+enum EmployeeType {
+  MONTHLY
+  HOURLY
+}
+
+enum Gender {
+  MALE
+  FEMALE
 }
 
 enum HrRuleType {
@@ -35,9 +47,23 @@ enum HrRuleType {
   LEAVE_ALLOW
 }
 
-enum VoucherType {
-  SAVE
-  DRAFT
+enum InventoryType {
+  EXPIRED
+  DAMAGED
+  REQUESTED
+  PURCHASED
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum OvertimeType {
+  NONE
+  MINUTES
+  DAY
 }
 
 enum PaymentType {
@@ -47,23 +73,15 @@ enum PaymentType {
   EWALLET
 }
 
-enum AccountType {
-  CASH
-  BANK
-  CARD
-  EWALLET
+enum PayrollStatus {
+  DRAFT
+  APPROVED
+  PAID
 }
 
 enum RefundType {
   FULL
   PARTIAL
-}
-
-enum InventoryType {
-  EXPIRED
-  DAMAGED
-  REQUESTED
-  PURCHASED
 }
 
 enum Role {
@@ -74,11 +92,19 @@ enum Role {
   MANAGER
   WAITER
   SUPERADMIN
+  SUPPLIER
 }
 
-enum EmployeeType {
-  MONTHLY
-  HOURLY
+enum SubscriptionPaymentType {
+  CARD
+  EWALLET
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  TRIAL
 }
 
 enum TransactionType {
@@ -86,609 +112,21 @@ enum TransactionType {
   CLOSING_BALANCE
 }
 
-model SaleReport {
-  id            Int    @id @default(autoincrement())
-  createdAt     DateTime  @default(now())
-  date          DateTime
-  type          TransactionType // e.g., 'OPENING_BALANCE', 'SALE', 'REFUND', 'CLOSING_BALANCE', 'EXPENSE'
-  amount        Decimal     @db.Decimal(12, 2) // The value of the transaction
-  description   String?   // Optional: details like product name, reason for expense
-  saleId        Int
-  saleUser      User     @relation("saleuserfromsalereport", fields: [saleId], references: [id])
-  isClosed      Boolean   @default(false)          
-
-  companyId     Int
-  company       Company     @relation("companyfromsalereport", fields: [companyId], references: [id])
-
-  branchId      Int?
-  branch        Branch?     @relation("branchfromsalereport", fields: [branchId], references: [id])
-
-  isDeleted     Boolean     @default(false)
+enum VoucherType {
+  SAVE
+  DRAFT
 }
 
-model Transfer {
-  id            Int    @id @default(autoincrement())
-  createdAt     DateTime  @default(now())
-  date          DateTime
-  amount        Decimal     @db.Decimal(12, 2) 
-
-  from          Int
-  fromAccount   PaymentData @relation("fromAccount",fields: [from], references: [id])
-
-  to            Int
-  toAccount     PaymentData @relation("toAccount", fields: [to], references: [id])
-
-  saleId        Int
-  saleUser      User     @relation("saleuserfromtransfer", fields: [saleId], references: [id])
-
-  companyId     Int
-  company       Company     @relation("companyfromtransfer", fields: [companyId], references: [id])
-
-  branchId      Int?
-  branch        Branch?     @relation("branchfromtransfer", fields: [branchId], references: [id])
-
-
-  isDeleted     Boolean     @default(false)
-}
-
-model GeneralExpense {
-  id        Int      @id @default(autoincrement())
-
-  title     String
-  reason    String?
-  amount    Decimal  @db.Decimal(12, 2)
-  date      DateTime
-
-  // 🔗 Company Relation
-  company   Company  @relation("companyFromGeneralExpense", fields: [companyId], references: [id])
-  companyId Int
-
-  // 🔗 Branch Relation (Optional)
-  branch    Branch?  @relation("branchFromGeneralExpense", fields: [branchId], references: [id])
-  branchId  Int?
-
-  // 🔗 User Relation
-  user      User     @relation("userFromGeneralExpense", fields: [userId], references: [id])
-  userId    Int
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  isDeleted Boolean  @default(false)
-
-  @@index([companyId])
-  @@index([branchId])
-  @@index([userId])
-  @@index([date])
+enum PurchaseStatus {
+  PENDING
+  SHIPPED
+  SUCCESS 
+  FAILED
 }
 
 //////////////////////////////////////////////////////
-// COMPANY
+// MODELS (alphabetical)
 //////////////////////////////////////////////////////
-
-model Company {
-  id       Int     @id @default(autoincrement())
-  country  String  @default("MM")
-  code     String?
-  email    String  @unique
-  name     String  @unique
-  phone    String?
-  address  String?
-  photoUrl String?
-  lat      String?
-  long     String?
-  type     CompanyType    @default(SHOP)
-  isTrial   Boolean       @default(true)
-  payroll   Payroll[]
-
-  products           Product[]
-  leaves              Leave[]
-  vouchers           Voucher[]
-  voucherCounters    VoucherCounter[]
-  branches           Branch[]
-  currencies         Currency[]
-  users              User[]
-  saleReports        SaleReport[] @relation("companyfromsalereport")
-  transfers          Transfer[]   @relation("companyfromtransfer")
-  generalExpenses    GeneralExpense[] @relation("companyFromGeneralExpense")
-  refunds            Refund[]
-  Attendances        Attendance[]
-  inventories        InventoryManagement[]
-  subscriptionPayments  SubscriptionPayment[]
-  subscriptions      Subscription[]
-  repay              Repay[]
-  hrRules            HrRule[]
-  notificationDeviceTokens NotificationDeviceToken[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt @default(now())
-}
-
-//////////////////////////////////////////////////////
-// BRANCH
-//////////////////////////////////////////////////////
-
-model Branch {
-  id        Int     @id @default(autoincrement())
-  email     String  @unique
-  name      String
-  address   String?
-  latitude  String?
-  longitude String?
-  isDeleted Boolean @default(false)
-
-  companyId Int
-  company   Company @relation(fields: [companyId], references: [id])
-
-  saleReports        SaleReport[] @relation("branchfromsalereport")
-  transfers          Transfer[]   @relation("branchfromtransfer")
-  payroll   Payroll[]
-  leaves              Leave[]
-  generalExpenses GeneralExpense[] @relation("branchFromGeneralExpense")
-  refunds         Refund[]
-  inventories     InventoryManagement[]
-  Attendances             Attendance[]
-  hrRules HrRule[]
-  repay   Repay[]
-
-  users    User[]    @relation("UserBranch")
-  vouchers Voucher[] @relation("VoucherBranch")
-  notificationDeviceTokens  NotificationDeviceToken[]
-  voucherCounters VoucherCounter[]
-
-  @@index([companyId])
-}
-
-//////////////////////////////////////////////////////
-// USER
-//////////////////////////////////////////////////////
-
-model User {
-  id    Int    @id @default(autoincrement())
-  email String @unique
-  role  Role   @default(CUSTOMER)
-  employeeType EmployeeType? @default(MONTHLY)
-
-  firstName String?
-  lastName  String?
-  password  String?
-  phone     String?
-  photoUrl  String?
-  address   String?
-
-  gender    Gender  @default(MALE)
-  isDeleted Boolean @default(false)
-
-  monthlySalary    Int?
-  hourlySalary Decimal? @db.Decimal(10,2)
-  locationRestrict Boolean  @default(false)
-  holidays  String[]
-  startTime String?
-  endTime  String?
-  lunchTime String?
-
-  branchId Int?
-  branch   Branch? @relation("UserBranch", fields: [branchId], references: [id])
-
-  companyId Int
-  company   Company @relation(fields: [companyId], references: [id])
-  payrolls        Payroll[] @relation("PayrollUser")
-  approvedPayrolls Payroll[] @relation("PayrollApproveUser")
-  leaves     Leave[]    @relation("leaveUser")
-  approvedLeaves  Leave[] @relation("approvedUser")
-  subscriptions           Subscription[]
-  vouchers                Voucher[]
-  categories              Category[]
-  products                Product[]
-  Attendances             Attendance[]
-  subscriptionPayments  SubscriptionPayment[]
-  saleUserReports   SaleReport[]   @relation("saleuserfromsalereport")
-  saleUserTransfers Transfer[]    @relation("saleuserfromtransfer")
-  generalExpenses GeneralExpense[] @relation("userFromGeneralExpense")
-  refunds Refund[]
-  inventories    InventoryManagement[]
-  repay   Repay[]
-  notifictionDeviceToken NotificationDeviceToken[] 
-
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  dateOfBirth DateTime?
-
-  @@index([branchId])
-}
-
-model NotificationDeviceToken {
-  id    Int    @id @default(autoincrement())
-  deviceToken String  @unique
-
-  userId Int?
-  user   User? @relation(fields: [userId], references: [id])
-
-  branchId Int?
-  branch   Branch? @relation(fields: [branchId], references: [id])
-
-  companyId Int?
-  company   Company? @relation(fields: [companyId], references: [id])
-
-  isLogged   Boolean  @default(false)
-  role       Role     @default(POS)
-
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@index([deviceToken])
-}
-
-//////////////////////////////////////////////////////
-// CATEGORY
-//////////////////////////////////////////////////////
-
-model Category {
-  id        Int     @id @default(autoincrement())
-  title     String
-  isDeleted Boolean @default(false)
-
-  userId Int
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  products Product[]
-
-  @@index([userId])
-}
-
-//////////////////////////////////////////////////////
-// PRODUCT
-//////////////////////////////////////////////////////
-
-model Product {
-  id Int @id @default(autoincrement())
-
-  name        String
-  code        String  @unique
-  barcode     String?
-  description String?
-  photoUrl    String?
-
-  price     Decimal  @db.Decimal(12, 2)
-  costPrice Decimal? @db.Decimal(12, 2)
-
-  stock    Int  @default(0)
-  minStock Int?
-
-  isActive  Boolean @default(true)
-  isDeleted Boolean @default(false)
-
-  refundItems RefundItem[]
-  inventoryItems  InventoryItem[]
-
-  categoryId Int?
-  category   Category? @relation(fields: [categoryId], references: [id])
-
-  userId Int
-  user   User @relation(fields: [userId], references: [id])
-
-  companyId Int
-  company   Company @relation(fields: [companyId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([companyId])
-  @@index([categoryId])
-  @@index([name])
-}
-
-//////////////////////////////////////////////////////
-// VOUCHER
-//////////////////////////////////////////////////////
-
-model Voucher {
-  id          Int    @id @default(autoincrement())
-  voucherCode String @unique
-
-  type VoucherType @default(DRAFT)
-
-  subTotal    Decimal @default(0.00) @db.Decimal(12, 2)
-  tax         Decimal @default(0.00) @db.Decimal(12, 2)
-  deliveryFee Decimal @default(0.00) @db.Decimal(12, 2)
-
-  totalPaymentAmount     Decimal @default(0.00) @db.Decimal(12, 2)
-  remainingPaymentAmount Decimal @default(0.00) @db.Decimal(12, 2)
-
-  total         Decimal @default(0.00) @db.Decimal(12, 2)
-  debt          Decimal @default(0.00) @db.Decimal(12, 2)
-  discountPercent Decimal @default(0.00) @db.Decimal(12, 2)
-  discountAmount Decimal @default(0.00) @db.Decimal(12, 2)
-  existDebt     Boolean @default(false)
-
-  note          String?
-  isDeleted     Boolean @default(false)
-  refunds       Refund[]
-  isRefund      Boolean @default(false)
-  repays        Repay[]
-
-  userId Int
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  companyId Int
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  branchId Int?
-  branch   Branch? @relation("VoucherBranch", fields: [branchId], references: [id])
-
-  items         VoucherItem[]
-  payments      Payment[]
-  paymentPhotos PaymentPhoto[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt @default(now())
-
-  @@index([companyId])
-  @@index([branchId])
-  @@index([createdAt])
-}
-
-model VoucherCounter {
-  id        Int    @id @default(autoincrement())
-  companyId Int
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId  Int?
-  branch    Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  type      String
-  seq       Int    @default(0)
-
-  @@unique([companyId, type])
-}
-
-//////////////////////////////////////////////////////
-// VOUCHER ITEM
-//////////////////////////////////////////////////////
-
-model VoucherItem {
-  id Int @id @default(autoincrement())
-  isDeleted Boolean @default(false)
-  voucherId Int
-  voucher   Voucher @relation(fields: [voucherId], references: [id], onDelete: Cascade)
-
-  itemId   Int
-  name     String
-  photoUrl String?
-
-  quantity     Int     @default(0)
-  price        Decimal @default(0.00) @db.Decimal(12, 2)
-  costPrice    Decimal @default(0.00) @db.Decimal(12, 2)
-
-  createdAt DateTime @default(now())
-
-  @@index([voucherId])
-}
-
-model Repay {
-  id Int @id @default(autoincrement())
-
-  voucherId Int
-  voucher   Voucher @relation(fields: [voucherId], references: [id], onDelete: Cascade)
-
-  userId Int
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  companyId Int
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  branchId Int?
-  branch   Branch? @relation(fields: [branchId], references: [id])
-
-  paymentDataId Int
-  paymentData PaymentData @relation(fields: [paymentDataId], references: [id])
-
-  photoUrl  String?
-
-  amount    Decimal @default(0.00) @db.Decimal(12, 2)
-
-  createdAt DateTime @default(now())
-
-  @@index([voucherId])
-}
-
-//////////////////////////////////////////////////////
-// REFUND
-//////////////////////////////////////////////////////
-
-model Refund {
-  id          Int         @id @default(autoincrement())
-  voucherId   Int?
-  voucher     Voucher?     @relation(fields: [voucherId], references: [id], onDelete: Cascade)
-
-  amount      Decimal     @db.Decimal(12, 2)
-  reason      String?
-
-  paymentType PaymentType @default(CASH)
-  refundType  RefundType  @default(FULL)
-  paymentDataId Int
-  paymentData  PaymentData @relation(fields: [paymentDataId], references: [id])
-
-  userId      Int
-  user        User        @relation(fields: [userId], references: [id])
-
-  companyId   Int
-  company     Company     @relation(fields: [companyId], references: [id])
-
-  branchId    Int?
-  branch      Branch?     @relation(fields: [branchId], references: [id])
-
-  refundItems RefundItem[]
-
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  isDeleted   Boolean     @default(false)
-
-  @@index([voucherId])
-  @@index([companyId])
-  @@index([branchId])
-  @@index([userId])
-}
-
-//////////////////////////////////////////////////////
-// REFUND ITEM
-//////////////////////////////////////////////////////
-
-model RefundItem {
-  id        Int      @id @default(autoincrement())
-  refundId  Int
-  refund    Refund   @relation(fields: [refundId], references: [id], onDelete: Cascade)
-
-  productId Int?
-  product   Product?  @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  quantity  Int      @default(0)
-  price     Decimal  @db.Decimal(12, 2)
-
-  createdAt DateTime @default(now())
-
-  @@index([refundId])
-  @@index([productId])
-}
-
-model InventoryManagement {
-  id        Int               @id @default(autoincrement())
-  type      InventoryType
-
-  reason    String?
-  note      String?
-
-  totalAmount Decimal     @db.Decimal(12, 2)
-
-  userId    Int
-  user      User          @relation(fields: [userId], references: [id])
-
-  companyId Int
-  company   Company       @relation(fields: [companyId], references: [id])
-
-  branchId  Int?
-  branch    Branch?       @relation(fields: [branchId], references: [id])
-
-  //for request item, if confirmed then add item quantity 
-  confirmed Boolean       @default(false)
-
-  items     InventoryItem[]
-
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
-  isDeleted Boolean           @default(false)
-
-  @@index([companyId])
-  @@index([branchId])
-  @@index([userId])
-  @@index([type])
-}
-
-model InventoryItem {
-  id          Int        @id @default(autoincrement())
-
-  inventoryId      Int
-  inventory        InventoryManagement @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
-
-  productId   Int
-  product     Product  @relation(fields: [productId], references: [id])
-
-  photoUrl    String?   
-
-  quantity    Int
-  price   Decimal    @db.Decimal(12, 2) @default(0)
-  totalAmount Decimal    @db.Decimal(12, 2)
-
-  createdAt   DateTime   @default(now())
-
-  @@index([inventoryId])
-  @@index([productId])
-}
-
-//////////////////////////////////////////////////////
-// PAYMENT
-//////////////////////////////////////////////////////
-
-model Payment {
-  id Int @id @default(autoincrement())
-
-  voucherId Int
-  voucher   Voucher @relation(fields: [voucherId], references: [id], onDelete: Cascade)
-
-  paymentDataId Int
-  paymentData   PaymentData @relation(fields: [paymentDataId], references: [id])
-
-  amount Decimal     @db.Decimal(12, 2)
-  type   PaymentType @default(CASH)
-
-  createdAt DateTime @default(now())
-
-  @@index([voucherId])
-}
-
-//////////////////////////////////////////////////////
-// PAYMENT PHOTO
-//////////////////////////////////////////////////////
-
-model PaymentPhoto {
-  id Int @id @default(autoincrement())
-
-  voucherId Int
-  voucher   Voucher @relation(fields: [voucherId], references: [id], onDelete: Cascade)
-
-  photoUrl String
-
-  createdAt DateTime @default(now())
-
-  @@index([voucherId])
-}
-
-//////////////////////////////////////////////////////
-// PAYMENT DATA (Accounts)
-//////////////////////////////////////////////////////
-
-model PaymentData {
-  id Int @id @default(autoincrement())
-  accountNumber String?
-  accountName   String
-  accountType   AccountType
-  balance       Decimal @db.Decimal(12, 2) @default(0)
-  companyId Int
-  userId    Int
-
-  isActive Boolean @default(true)
-
-  payments Payment[]
-  fromAccount Transfer[] @relation("fromAccount")
-  toAccount   Transfer[]  @relation("toAccount")
-
-  refunds   Refund[]
-  repays    Repay[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([companyId])
-}
-
-//////////////////////////////////////////////////////
-// CURRENCY
-//////////////////////////////////////////////////////
-
-model Currency {
-  id             Int     @id @default(autoincrement())
-  currencyCode   String  @unique
-  value          Int     @default(1)
-  setDefault     Boolean @default(false)
-  currencySymbol String
-
-  companyId Int
-  company   Company @relation(fields: [companyId], references: [id])
-
-  @@index([companyId])
-}
-
-enum OvertimeType {
-  NONE
-  MINUTES
-  DAY
-}
 
 model Attendance {
   id Int @id @default(autoincrement())
@@ -731,10 +169,208 @@ model Attendance {
   @@index([companyId])
   @@index([date])
 }
-enum LeaveStatus {
-  PENDING
-  APPROVED
-  REJECTED
+
+model Branch {
+  id        Int     @id @default(autoincrement())
+  email     String  @unique
+  name      String
+  address   String?
+  latitude  String?
+  longitude String?
+  isDeleted Boolean @default(false)
+
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id])
+
+  saleReports        SaleReport[] @relation("branchfromsalereport")
+  transfers          Transfer[]   @relation("branchfromtransfer")
+  payroll   Payroll[]
+  leaves              Leave[]
+  generalExpenses GeneralExpense[] @relation("branchFromGeneralExpense")
+  refunds         Refund[]
+  inventories     InventoryManagement[]
+  Attendances             Attendance[]
+  hrRules HrRule[]
+  repay   Repay[]
+
+  users    User[]    @relation("UserBranch")
+  vouchers Voucher[] @relation("VoucherBranch")
+  notificationDeviceTokens  NotificationDeviceToken[]
+  voucherCounters VoucherCounter[]
+  suppliers  Supplier[]
+  purchases  Purchase[]
+
+  @@index([companyId])
+}
+
+model Category {
+  id        Int     @id @default(autoincrement())
+  title     String
+  isDeleted Boolean @default(false)
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  products Product[]
+
+  @@index([userId])
+}
+
+model Company {
+  id       Int     @id @default(autoincrement())
+  country  String  @default("MM")
+  code     String?
+  email    String  @unique
+  name     String  @unique
+  phone    String?
+  address  String?
+  photoUrl String?
+  lat      String?
+  long     String?
+  type     CompanyType    @default(SHOP)
+  isTrial   Boolean       @default(true)
+  payroll   Payroll[]
+
+  products           Product[]
+  leaves              Leave[]
+  vouchers           Voucher[]
+  voucherCounters    VoucherCounter[]
+  branches           Branch[]
+  currencies         Currency[]
+  users              User[]
+  saleReports        SaleReport[] @relation("companyfromsalereport")
+  transfers          Transfer[]   @relation("companyfromtransfer")
+  generalExpenses    GeneralExpense[] @relation("companyFromGeneralExpense")
+  refunds            Refund[]
+  Attendances        Attendance[]
+  inventories        InventoryManagement[]
+  subscriptionPayments  SubscriptionPayment[]
+  subscriptions      Subscription[]
+  repay              Repay[]
+  hrRules            HrRule[]
+  notificationDeviceTokens NotificationDeviceToken[]
+  purchases           Purchase[]
+  suppliers           Supplier[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt @default(now())
+}
+
+model Currency {
+  id             Int     @id @default(autoincrement())
+  currencyCode   String  @unique
+  value          Int     @default(1)
+  setDefault     Boolean @default(false)
+  currencySymbol String
+
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+}
+
+model GeneralExpense {
+  id        Int      @id @default(autoincrement())
+
+  title     String
+  reason    String?
+  amount    Decimal  @db.Decimal(12, 2)
+  date      DateTime
+
+  // 🔗 Company Relation
+  company   Company  @relation("companyFromGeneralExpense", fields: [companyId], references: [id])
+  companyId Int
+
+  // 🔗 Branch Relation (Optional)
+  branch    Branch?  @relation("branchFromGeneralExpense", fields: [branchId], references: [id])
+  branchId  Int?
+
+  // 🔗 User Relation
+  user      User     @relation("userFromGeneralExpense", fields: [userId], references: [id])
+  userId    Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([userId])
+  @@index([date])
+}
+
+model HrRule {
+  id           Int       @id @default(autoincrement())
+  
+  // Relation to Company
+  companyId    Int
+  company      Company   @relation(fields: [companyId], references: [id])
+  
+  branchId     Int?      // Optional: branch-specific rules
+  branch       Branch?   @relation(fields: [branchId], references: [id])
+
+  type         HrRuleType @default(DEDUCT)
+
+  thresholdMinute Int?
+  thresholdAmount Int?
+  thresholdAmountPercent Int?
+  thresholdDays   Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model InventoryItem {
+  id          Int        @id @default(autoincrement())
+
+  inventoryId      Int
+  inventory        InventoryManagement @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+
+  productId   Int
+  product     Product  @relation(fields: [productId], references: [id])
+
+  photoUrl    String?   
+
+  quantity    Int
+  price   Decimal    @db.Decimal(12, 2) @default(0)
+  totalAmount Decimal    @db.Decimal(12, 2)
+
+  createdAt   DateTime   @default(now())
+
+  @@index([inventoryId])
+  @@index([productId])
+}
+
+model InventoryManagement {
+  id        Int               @id @default(autoincrement())
+  type      InventoryType
+
+  reason    String?
+  note      String?
+
+  totalAmount Decimal     @db.Decimal(12, 2)
+
+  userId    Int
+  user      User          @relation(fields: [userId], references: [id])
+
+  companyId Int
+  company   Company       @relation(fields: [companyId], references: [id])
+
+  branchId  Int?
+  branch    Branch?       @relation(fields: [branchId], references: [id])
+
+  //for request item, if confirmed then add item quantity 
+  confirmed Boolean       @default(false)
+
+  items     InventoryItem[]
+
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  isDeleted Boolean           @default(false)
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([userId])
+  @@index([type])
 }
 
 model Leave {
@@ -770,31 +406,80 @@ model Leave {
   @@index([date])
 }
 
-model HrRule {
-  id           Int       @id @default(autoincrement())
-  
-  // Relation to Company
-  companyId    Int
-  company      Company   @relation(fields: [companyId], references: [id])
-  
-  branchId     Int?      // Optional: branch-specific rules
-  branch       Branch?   @relation(fields: [branchId], references: [id])
+model NotificationDeviceToken {
+  id    Int    @id @default(autoincrement())
+  deviceToken String  @unique
 
-  type         HrRuleType @default(DEDUCT)
+  userId Int?
+  user   User? @relation(fields: [userId], references: [id])
 
-  thresholdMinute Int?
-  thresholdAmount Int?
-  thresholdAmountPercent Int?
-  thresholdDays   Int?
+  branchId Int?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  companyId Int?
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  isLogged   Boolean  @default(false)
+  role       Role     @default(POS)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([deviceToken])
+}
+
+model Payment {
+  id Int @id @default(autoincrement())
+
+  voucherId Int
+  voucher   Voucher @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+
+  paymentDataId Int
+  paymentData   PaymentData @relation(fields: [paymentDataId], references: [id])
+
+  amount Decimal     @db.Decimal(12, 2)
+  type   PaymentType @default(CASH)
+
+  createdAt DateTime @default(now())
+
+  @@index([voucherId])
+}
+
+model PaymentData {
+  id Int @id @default(autoincrement())
+  accountNumber String?
+  accountName   String
+  accountType   AccountType
+  balance       Decimal @db.Decimal(12, 2) @default(0)
+  companyId Int
+  userId    Int
+
+  isActive Boolean @default(true)
+
+  payments Payment[]
+  fromAccount Transfer[] @relation("fromAccount")
+  toAccount   Transfer[]  @relation("toAccount")
+
+  refunds   Refund[]
+  repays    Repay[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([companyId])
 }
 
-enum PayrollStatus {
-  DRAFT
-  APPROVED
-  PAID
+model PaymentPhoto {
+  id Int @id @default(autoincrement())
+
+  voucherId Int
+  voucher   Voucher @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+
+  photoUrl String
+
+  createdAt DateTime @default(now())
+
+  @@index([voucherId])
 }
 
 model Payroll {
@@ -877,11 +562,249 @@ model Plan {
   isDeleted Boolean  @default(false)
 }
 
-enum SubscriptionStatus {
-  ACTIVE
-  EXPIRED
-  CANCELLED
-  TRIAL
+model PlanFeature {
+  id        Int    @id @default(autoincrement())
+
+  planId    Int
+  plan      Plan   @relation(fields: [planId], references: [id])
+
+  icon      String
+  key       String // "AI_REQUEST_LIMIT", "ALL_FEATURE_ACCESS"
+  value     String // "10", "true"
+
+  createdAt DateTime @default(now())
+}
+
+model Product {
+  id Int @id @default(autoincrement())
+
+  name        String
+  code        String  @unique
+  barcode     String?
+  description String?
+  photoUrl    String?
+
+  price     Decimal  @db.Decimal(12, 2)
+  costPrice Decimal? @db.Decimal(12, 2)
+
+  stock    Int  @default(0)
+  minStock Int?
+
+  isActive  Boolean @default(true)
+  isDeleted Boolean @default(false)
+
+  refundItems RefundItem[]
+  inventoryItems  InventoryItem[]
+  purchaseItems   PurchaseItem[]
+  requestItems    RequestItem[]
+
+  categoryId Int?
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([categoryId])
+  @@index([name])
+}
+
+model Refund {
+  id          Int         @id @default(autoincrement())
+  voucherId   Int?
+  voucher     Voucher?     @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+
+  amount      Decimal     @db.Decimal(12, 2)
+  reason      String?
+
+  paymentType PaymentType @default(CASH)
+  refundType  RefundType  @default(FULL)
+  paymentDataId Int
+  paymentData  PaymentData @relation(fields: [paymentDataId], references: [id])
+
+  userId      Int
+  user        User        @relation(fields: [userId], references: [id])
+
+  companyId   Int
+  company     Company     @relation(fields: [companyId], references: [id])
+
+  branchId    Int?
+  branch      Branch?     @relation(fields: [branchId], references: [id])
+
+  refundItems RefundItem[]
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  isDeleted   Boolean     @default(false)
+
+  @@index([voucherId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([userId])
+}
+
+model RefundItem {
+  id        Int      @id @default(autoincrement())
+  refundId  Int
+  refund    Refund   @relation(fields: [refundId], references: [id], onDelete: Cascade)
+
+  productId Int?
+  product   Product?  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  quantity  Int      @default(0)
+  price     Decimal  @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([refundId])
+  @@index([productId])
+}
+
+model Repay {
+  id Int @id @default(autoincrement())
+
+  voucherId Int
+  voucher   Voucher @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  branchId Int?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  paymentDataId Int
+  paymentData PaymentData @relation(fields: [paymentDataId], references: [id])
+
+  photoUrl  String?
+
+  amount    Decimal @default(0.00) @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([voucherId])
+}
+
+model Purchase {
+  id            Int    @id @default(autoincrement())
+  createdAt     DateTime  @default(now())
+  orderDate     DateTime  
+  receivedDate  DateTime
+  status        PurchaseStatus @default(PENDING)
+  note          String?
+
+
+  isDeleted     Boolean    @default(false)
+
+  deliveryFee   Decimal  @default(0) @db.Decimal(12, 2)
+  discount      Decimal  @default(0) @db.Decimal(12, 2)
+  tax           Decimal  @default(0) @db.Decimal(12, 2)
+
+  purchaseItems PurchaseItem[]
+
+  requestItems  RequestItem[]
+
+  companyId     Int
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  branchId      Int?
+  branch        Branch?    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  supplierId    Int?
+  supplier      Supplier?    @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  createdBy    Int?
+  createdUser  User?    @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+}
+
+model Supplier {
+  id        Int      @id @default(autoincrement())
+
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+
+  companyId Int
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  branchId  Int?
+  branch    Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  isDeleted Boolean  @default(false)
+
+  purchases Purchase[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([email])
+}
+
+model RequestItem {
+  id        Int      @id @default(autoincrement())
+  
+  productId Int?
+  product   Product?  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  purchaseId  Int
+  Purchase    Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  quantity  Int      @default(0)
+  price     Decimal  @db.Decimal(12, 2)
+  costPrice     Decimal  @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+}
+
+model PurchaseItem {
+  id        Int      @id @default(autoincrement())
+  
+  productId Int?
+  product   Product?  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  purchaseId  Int
+  Purchase    Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  quantity  Int      @default(0)
+  price     Decimal  @db.Decimal(12, 2)
+  costPrice     Decimal  @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+}
+
+model SaleReport {
+  id            Int    @id @default(autoincrement())
+  createdAt     DateTime  @default(now())
+  date          DateTime
+  type          TransactionType // e.g., 'OPENING_BALANCE', 'SALE', 'REFUND', 'CLOSING_BALANCE', 'EXPENSE'
+  amount        Decimal     @db.Decimal(12, 2) // The value of the transaction
+  description   String?   // Optional: details like product name, reason for expense
+  saleId        Int
+  saleUser      User     @relation("saleuserfromsalereport", fields: [saleId], references: [id])
+  isClosed      Boolean   @default(false)          
+
+  companyId     Int
+  company       Company     @relation("companyfromsalereport", fields: [companyId], references: [id])
+
+  branchId      Int?
+  branch        Branch?     @relation("branchfromsalereport", fields: [branchId], references: [id])
+
+  isDeleted     Boolean     @default(false)
 }
 
 model Subscription {
@@ -913,11 +836,6 @@ model Subscription {
   @@index([companyId])
 }
 
-enum SubscriptionPaymentType {
-  CARD 
-  EWALLET
-}
-
 model SubscriptionPayment {
   id        Int      @id @default(autoincrement())
   amount    Int      @default(0)
@@ -939,19 +857,6 @@ model SubscriptionPayment {
   updatedAt   DateTime      @updatedAt
 }
 
-model PlanFeature {
-  id        Int    @id @default(autoincrement())
-
-  planId    Int
-  plan      Plan   @relation(fields: [planId], references: [id])
-
-  icon      String
-  key       String // "AI_REQUEST_LIMIT", "ALL_FEATURE_ACCESS"
-  value     String // "10", "true"
-
-  createdAt DateTime @default(now())
-}
-
 model SuperAdminPhoneNumber {
   id        Int    @id @default(autoincrement())
 
@@ -959,4 +864,162 @@ model SuperAdminPhoneNumber {
   name        String  @default("Oakar Kyaw")
 
   createdAt DateTime @default(now())
+}
+
+model Transfer {
+  id            Int    @id @default(autoincrement())
+  createdAt     DateTime  @default(now())
+  date          DateTime
+  amount        Decimal     @db.Decimal(12, 2) 
+
+  from          Int
+  fromAccount   PaymentData @relation("fromAccount",fields: [from], references: [id])
+
+  to            Int
+  toAccount     PaymentData @relation("toAccount", fields: [to], references: [id])
+
+  saleId        Int
+  saleUser      User     @relation("saleuserfromtransfer", fields: [saleId], references: [id])
+
+  companyId     Int
+  company       Company     @relation("companyfromtransfer", fields: [companyId], references: [id])
+
+  branchId      Int?
+  branch        Branch?     @relation("branchfromtransfer", fields: [branchId], references: [id])
+
+
+  isDeleted     Boolean     @default(false)
+}
+
+model User {
+  id    Int    @id @default(autoincrement())
+  email String @unique
+  role  Role   @default(CUSTOMER)
+  employeeType EmployeeType? @default(MONTHLY)
+
+  firstName String?
+  lastName  String?
+  password  String?
+  phone     String?
+  photoUrl  String?
+  address   String?
+
+  gender    Gender  @default(MALE)
+  isDeleted Boolean @default(false)
+
+  monthlySalary    Int?
+  hourlySalary Decimal? @db.Decimal(10,2)
+  locationRestrict Boolean  @default(false)
+  holidays  String[]
+  startTime String?
+  endTime  String?
+  lunchTime String?
+
+  branchId Int?
+  branch   Branch? @relation("UserBranch", fields: [branchId], references: [id])
+
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id])
+
+  payrolls        Payroll[] @relation("PayrollUser")
+  approvedPayrolls Payroll[] @relation("PayrollApproveUser")
+  leaves     Leave[]    @relation("leaveUser")
+  approvedLeaves  Leave[] @relation("approvedUser")
+  subscriptions           Subscription[]
+  vouchers                Voucher[]
+  categories              Category[]
+  products                Product[]
+  Attendances             Attendance[]
+  subscriptionPayments  SubscriptionPayment[]
+  saleUserReports   SaleReport[]   @relation("saleuserfromsalereport")
+  saleUserTransfers Transfer[]    @relation("saleuserfromtransfer")
+  generalExpenses GeneralExpense[] @relation("userFromGeneralExpense")
+  refunds Refund[]
+  inventories    InventoryManagement[]
+  repay   Repay[]
+  notifictionDeviceToken NotificationDeviceToken[] 
+  purchases   Purchase[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  dateOfBirth DateTime?
+
+  @@index([branchId])
+}
+
+model Voucher {
+  id          Int    @id @default(autoincrement())
+  voucherCode String @unique
+
+  type VoucherType @default(DRAFT)
+
+  subTotal    Decimal @default(0.00) @db.Decimal(12, 2)
+  tax         Decimal @default(0.00) @db.Decimal(12, 2)
+  deliveryFee Decimal @default(0.00) @db.Decimal(12, 2)
+
+  totalPaymentAmount     Decimal @default(0.00) @db.Decimal(12, 2)
+  remainingPaymentAmount Decimal @default(0.00) @db.Decimal(12, 2)
+
+  total         Decimal @default(0.00) @db.Decimal(12, 2)
+  debt          Decimal @default(0.00) @db.Decimal(12, 2)
+  discountPercent Decimal @default(0.00) @db.Decimal(12, 2)
+  discountAmount Decimal @default(0.00) @db.Decimal(12, 2)
+  existDebt     Boolean @default(false)
+
+  note          String?
+  isDeleted     Boolean @default(false)
+  refunds       Refund[]
+  isRefund      Boolean @default(false)
+  repays        Repay[]
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  branchId Int?
+  branch   Branch? @relation("VoucherBranch", fields: [branchId], references: [id])
+
+  items         VoucherItem[]
+  payments      Payment[]
+  paymentPhotos PaymentPhoto[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt @default(now())
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([createdAt])
+}
+
+model VoucherCounter {
+  id        Int    @id @default(autoincrement())
+  companyId Int
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId  Int?
+  branch    Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  type      String
+  seq       Int    @default(0)
+
+  @@unique([companyId, type])
+}
+
+model VoucherItem {
+  id Int @id @default(autoincrement())
+  isDeleted Boolean @default(false)
+  voucherId Int
+  voucher   Voucher @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+
+  itemId   Int
+  name     String
+  photoUrl String?
+
+  quantity     Int     @default(0)
+  price        Decimal @default(0.00) @db.Decimal(12, 2)
+  costPrice    Decimal @default(0.00) @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([voucherId])
 }

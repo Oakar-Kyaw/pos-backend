@@ -27,6 +27,8 @@ import { RedisModule } from './utils/redis/redis.module';
 import { ConfigModule } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { RabbitMQModule } from './rabbitmq/rabbitmq.module';
+import { PurchaseModule } from './purchase/purchase.module';
+import { SupplierModule } from './supplier/supplier.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -68,6 +70,8 @@ import { RabbitMQModule } from './rabbitmq/rabbitmq.module';
     SuperAdminPhoneNumberModule,
     RedisModule.forRoot(),
     RabbitMQModule,
+    PurchaseModule,
+    SupplierModule,
   ],
   controllers: [AppController],
   providers: [AppService],
