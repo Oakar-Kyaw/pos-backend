@@ -95,8 +95,10 @@ export class AuthController {
     return this.authService.signOut(authorizationHeader, deviceToken);
   }
 
+  @Public()
   @Get('refresh')
   refreshToken(@Headers('Authorization') authorizationHeader: string) {
+    console.log('authorization token', authorizationHeader);
     const token = authorizationHeader.split(' ')[1];
     return this.authService.refreshToken(token);
   }

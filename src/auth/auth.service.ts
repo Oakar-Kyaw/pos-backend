@@ -15,6 +15,7 @@ import { lastValueFrom } from 'rxjs';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from 'prisma/prisma.service';
 import { comparePassword } from 'src/utils/hash-password';
+import { StringValue } from 'ms';
 
 // interface PayloadInterface {
 //   id: number;
@@ -30,6 +31,7 @@ export class AuthService {
   ) {}
 
   async signIn(datas: { email?: string; phone?: string; password: string }) {
+    console.log('email and password are: ', datas.email, datas.password);
     if (!datas) {
       throw new BadRequestException('Either email or phone must be provided');
     }
@@ -138,12 +140,12 @@ export class AuthService {
     console.log('🎫 Refresh token received:', refreshToken ? 'Yes' : 'No');
 
     if (!refreshToken) {
-      throw new ForbiddenException('Refresh token is required');
+      throw new UnauthorizedException('Refresh token is required');
     }
 
     console.log('🔍 Verifying refresh token...');
     const payload = await this.jwtService.verifyAsync(refreshToken, {
-      secret: process.env.JWTSECRET,
+      secret: process.env.JWTREFRESH,
     });
 
     console.log('✅ Token verified successfully');
@@ -165,18 +167,21 @@ export class AuthService {
     );
 
     if (!data) {
-      throw new ForbiddenException('Invalid refresh token - user not found');
+      throw new UnauthorizedException('Invalid refresh token - user not found');
     }
 
     console.log('🎫 Generating new access token...');
-    const newAccessToken = await this.jwtService.signAsync({
-      id: data.id,
-      email: data.email,
-      phone: data.phone,
-      role: data.role,
-      companyId: data.companyId ?? null,
-      brandId: data.branchId,
-    });
+    const newAccessToken = await this.jwtService.signAsync(
+      {
+        id: data.id,
+        email: data.email,
+        phone: data.phone,
+        role: data.role,
+        companyId: data.companyId ?? null,
+        brandId: data.branchId,
+      },
+      { expiresIn: '1m' },
+    );
 
     console.log('✅ New access token generated successfully');
 
@@ -184,6 +189,7 @@ export class AuthService {
       success: true,
       message: 'Access Token',
       access_token: newAccessToken,
+      refresh_token: refreshToken,
     };
   }
 
@@ -373,10 +379,13 @@ export class AuthService {
   // }
 
   async encryptedData(payload) {
-    const access_token = await this.jwtService.signAsync(payload);
+    const access_token = await this.jwtService.signAsync(payload, {
+      expiresIn: (process.env.JWTEXP ?? '1m') as StringValue,
+    });
+
     const refresh_token = await this.jwtService.signAsync(payload, {
       secret: process.env.JWTREFRESH,
-      expiresIn: '7d',
+      expiresIn: (process.env.JWTREFRESHEXP ?? '1.5m') as StringValue,
     });
 
     return {

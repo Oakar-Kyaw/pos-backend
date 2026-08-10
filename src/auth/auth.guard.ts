@@ -3,7 +3,7 @@ import {
   Injectable,
   CanActivate,
   ExecutionContext,
-  ForbiddenException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
@@ -26,13 +26,13 @@ export class AuthGuard implements CanActivate {
     }
     const request = context.switchToHttp().getRequest();
     const apiKey = request.headers['authorization']; // Access header value
-    if (!apiKey) throw new ForbiddenException('Unauthorized access');
-    console.log('api key is ', apiKey);
+    if (!apiKey) throw new UnauthorizedException('Unauthorized access');
+    // console.log('api key is ', apiKey);
     if (apiKey) {
       const [_, token] = apiKey.split('Bearer ');
       // console.log('type ', token);
       if (!token) {
-        throw new ForbiddenException('Invalid authorization format');
+        throw new UnauthorizedException('Invalid authorization format');
       }
       const { id, email, role, companyId, branchId } =
         await this.verifyAccessToken(token);
@@ -41,7 +41,7 @@ export class AuthGuard implements CanActivate {
       return true;
     }
 
-    throw new ForbiddenException('Unauthorized access');
+    throw new UnauthorizedException('Unauthorized access');
   }
   async verifyAccessToken(token: string) {
     try {
@@ -61,7 +61,8 @@ export class AuthGuard implements CanActivate {
 
       return { id, email, phone, role, companyId, branchId };
     } catch (err) {
-      throw new ForbiddenException('Invalid token');
+      // console.log('err', err);
+      throw new UnauthorizedException('Invalid token');
     }
   }
 }
