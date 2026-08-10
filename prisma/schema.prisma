@@ -697,7 +697,7 @@ model Purchase {
   id            Int    @id @default(autoincrement())
   createdAt     DateTime  @default(now())
   orderDate     DateTime  
-  receivedDate  DateTime
+  receivedDate  DateTime?
   status        PurchaseStatus @default(PENDING)
   note          String?
 

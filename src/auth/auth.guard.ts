@@ -27,7 +27,7 @@ export class AuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const apiKey = request.headers['authorization']; // Access header value
     if (!apiKey) throw new ForbiddenException('Unauthorized access');
-
+    console.log('api key is ', apiKey);
     if (apiKey) {
       const [_, token] = apiKey.split('Bearer ');
       // console.log('type ', token);

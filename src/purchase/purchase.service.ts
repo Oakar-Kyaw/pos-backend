@@ -645,7 +645,6 @@ export class PurchaseService {
           // -----------------------------------------------
           // Create new purchase items
           // -----------------------------------------------
-
           await tx.purchaseItem.createMany({
             data: dto.purchaseItems.map((item) => ({
               purchaseId: id,

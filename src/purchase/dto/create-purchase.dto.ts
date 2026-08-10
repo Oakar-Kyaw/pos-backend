@@ -7,6 +7,7 @@ import {
   IsInt,
   IsString,
   ValidateNested,
+  Min,
 } from 'class-validator';
 import { PurchaseStatus } from '@prisma/client';
 import { CreatePurchaseItemDto } from './create-purchase-item.dto';
@@ -18,6 +19,27 @@ export class CreatePurchaseDto {
   @IsInt()
   @Type(() => Number)
   readonly supplierId: number;
+
+  @Expose()
+  @IsNotEmpty()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  readonly tax: number;
+
+  @Expose()
+  @IsNotEmpty()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  readonly discount: number;
+
+  @Expose()
+  @IsNotEmpty()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  readonly deliveryFee: number;
 
   @Expose()
   @IsOptional()
@@ -36,7 +58,7 @@ export class CreatePurchaseDto {
   readonly orderDate: Date;
 
   @Expose()
-  @IsNotEmpty()
+  @IsOptional()
   @Type(() => Date)
   readonly receivedDate: Date;
 
