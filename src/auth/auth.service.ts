@@ -377,7 +377,6 @@ export class AuthService {
   //     refresh_token,
   //   };
   // }
-
   async encryptedData(payload) {
     const access_token = await this.jwtService.signAsync(payload, {
       expiresIn: (process.env.JWTEXP ?? '1m') as StringValue,
