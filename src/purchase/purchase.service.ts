@@ -44,25 +44,25 @@ export class PurchaseService {
         // Validate request items
         // ------------------------------------------------------
 
-        for (const item of dto.requestItems ?? []) {
-          if (item.productId == null) {
-            throw new ForbiddenException(
-              'Product ID is required for request item',
-            );
-          }
+        // for (const item of dto.requestItems ?? []) {
+        //   if (item.productId == null) {
+        //     throw new ForbiddenException(
+        //       'Product ID is required for request item',
+        //     );
+        //   }
 
-          const product = await tx.product.findFirst({
-            where: {
-              id: item.productId,
-              companyId,
-              isDeleted: false,
-            },
-          });
+        //   const product = await tx.product.findFirst({
+        //     where: {
+        //       id: item.productId,
+        //       companyId,
+        //       isDeleted: false,
+        //     },
+        //   });
 
-          if (!product) {
-            throw new NotFoundException(`Product ${item.productId} not found`);
-          }
-        }
+        //   if (!product) {
+        //     throw new NotFoundException(`Product ${item.productId} not found`);
+        //   }
+        // }
 
         // ------------------------------------------------------
         // Validate purchase items
@@ -148,21 +148,21 @@ export class PurchaseService {
             discount,
             tax,
 
-            requestItems: {
-              create: (dto.requestItems ?? []).map((item) => ({
-                product: {
-                  connect: {
-                    id: item.productId!,
-                  },
-                },
+            // requestItems: {
+            //   create: (dto.requestItems ?? []).map((item) => ({
+            //     product: {
+            //       connect: {
+            //         id: item.productId!,
+            //       },
+            //     },
 
-                quantity: item.quantity,
+            //     quantity: item.quantity,
 
-                price: new Prisma.Decimal(item.price),
+            //     price: new Prisma.Decimal(item.price),
 
-                costPrice: new Prisma.Decimal(item.costPrice),
-              })),
-            },
+            //     costPrice: new Prisma.Decimal(item.costPrice),
+            //   })),
+            // },
 
             purchaseItems: {
               create: (dto.purchaseItems ?? []).map((item) => ({
@@ -183,12 +183,6 @@ export class PurchaseService {
 
           include: {
             supplier: true,
-
-            requestItems: {
-              include: {
-                product: true,
-              },
-            },
 
             purchaseItems: {
               include: {
@@ -317,12 +311,6 @@ export class PurchaseService {
         include: {
           supplier: true,
 
-          requestItems: {
-            include: {
-              product: true,
-            },
-          },
-
           purchaseItems: {
             include: {
               product: true,
@@ -383,13 +371,6 @@ export class PurchaseService {
 
       include: {
         supplier: true,
-
-        requestItems: {
-          include: {
-            product: true,
-          },
-        },
-
         purchaseItems: {
           include: {
             product: true,
@@ -474,7 +455,6 @@ export class PurchaseService {
           },
 
           include: {
-            requestItems: true,
             purchaseItems: true,
           },
         });
@@ -505,29 +485,29 @@ export class PurchaseService {
         // Validate request items
         // ----------------------------------------------------
 
-        if (dto.requestItems !== undefined) {
-          for (const item of dto.requestItems) {
-            if (item.productId == null) {
-              throw new ForbiddenException(
-                'Product ID is required for request item',
-              );
-            }
+        // if (dto.requestItems !== undefined) {
+        //   for (const item of dto.requestItems) {
+        //     if (item.productId == null) {
+        //       throw new ForbiddenException(
+        //         'Product ID is required for request item',
+        //       );
+        //     }
 
-            const product = await tx.product.findFirst({
-              where: {
-                id: item.productId,
-                companyId,
-                isDeleted: false,
-              },
-            });
+        //     const product = await tx.product.findFirst({
+        //       where: {
+        //         id: item.productId,
+        //         companyId,
+        //         isDeleted: false,
+        //       },
+        //     });
 
-            if (!product) {
-              throw new NotFoundException(
-                `Product ${item.productId} not found`,
-              );
-            }
-          }
-        }
+        //     if (!product) {
+        //       throw new NotFoundException(
+        //         `Product ${item.productId} not found`,
+        //       );
+        //     }
+        //   }
+        // }
 
         // ----------------------------------------------------
         // Validate purchase items
@@ -664,27 +644,27 @@ export class PurchaseService {
         // Update request items
         // ----------------------------------------------------
 
-        if (dto.requestItems !== undefined) {
-          await tx.requestItem.deleteMany({
-            where: {
-              purchaseId: id,
-            },
-          });
+        // if (dto.requestItems !== undefined) {
+        //   await tx.requestItem.deleteMany({
+        //     where: {
+        //       purchaseId: id,
+        //     },
+        //   });
 
-          await tx.requestItem.createMany({
-            data: dto.requestItems.map((item) => ({
-              purchaseId: id,
+        // await tx.requestItem.createMany({
+        //   data: dto.requestItems.map((item) => ({
+        //     purchaseId: id,
 
-              productId: item.productId!,
+        //     productId: item.productId!,
 
-              quantity: item.quantity,
+        //     quantity: item.quantity,
 
-              price: new Prisma.Decimal(item.price),
+        //     price: new Prisma.Decimal(item.price),
 
-              costPrice: new Prisma.Decimal(item.costPrice),
-            })),
-          });
-        }
+        //     costPrice: new Prisma.Decimal(item.costPrice),
+        //   })),
+        // });
+        // }
 
         // ----------------------------------------------------
         // Update purchase
@@ -731,13 +711,6 @@ export class PurchaseService {
 
           include: {
             supplier: true,
-
-            requestItems: {
-              include: {
-                product: true,
-              },
-            },
-
             purchaseItems: {
               include: {
                 product: true,

@@ -11,7 +11,6 @@ import {
 } from 'class-validator';
 import { PurchaseStatus } from '@prisma/client';
 import { CreatePurchaseItemDto } from './create-purchase-item.dto';
-import { CreateRequestItemDto } from './create-request-item.dto';
 
 export class CreatePurchaseDto {
   @Expose()
@@ -62,12 +61,12 @@ export class CreatePurchaseDto {
   @Type(() => Date)
   readonly receivedDate: Date;
 
-  @Expose()
-  @IsNotEmpty()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CreateRequestItemDto)
-  readonly requestItems: CreateRequestItemDto[];
+  // @Expose()
+  // @IsNotEmpty()
+  // @IsArray()
+  // @ValidateNested({ each: true })
+  // @Type(() => CreateRequestItemDto)
+  // readonly requestItems: CreateRequestItemDto[];
 
   @Expose()
   @IsNotEmpty()
