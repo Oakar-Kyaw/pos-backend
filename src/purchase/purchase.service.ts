@@ -161,7 +161,7 @@ export class PurchaseService {
             discountPercent,
             packagingFee,
             tax,
-            totalAmount: total
+            totalAmount: total,
 
             // requestItems: {
             //   create: (dto.requestItems ?? []).map((item) => ({
@@ -682,6 +682,53 @@ export class PurchaseService {
         // }
 
         // ----------------------------------------------------
+        // Calculate updated totals
+        // ----------------------------------------------------
+
+        const subtotal = dto.purchaseItems!.reduce((sum, item) => {
+          const price = new Prisma.Decimal(item.price);
+
+          const quantity = new Prisma.Decimal(item.quantity);
+
+          return sum.plus(price.mul(quantity));
+        }, new Prisma.Decimal(0));
+        // ------------------------------------------------------
+        // Purchase costs
+        // ------------------------------------------------------
+
+        const deliveryFee = new Prisma.Decimal(dto.deliveryFee ?? 0);
+
+        const discount = new Prisma.Decimal(dto.discount ?? 0);
+
+        const discountPercent = new Prisma.Decimal(dto.discountPercent ?? 0);
+
+        const packagingFee = new Prisma.Decimal(dto.packagingFee ?? 0);
+
+        const tax = new Prisma.Decimal(dto.tax ?? 0);
+
+        // ------------------------------------------------------
+        // Final total
+        //
+        // total = subtotal + deliveryFee + tax - discount
+        // ------------------------------------------------------
+
+        const baseTotal = subtotal
+          .plus(deliveryFee)
+          .plus(tax)
+          .plus(discount)
+          .plus(packagingFee);
+
+        const percentageDiscount = baseTotal.mul(discountPercent).div(100);
+
+        const total = baseTotal.minus(percentageDiscount);
+
+        if (total.lessThan(0)) {
+          throw new ForbiddenException(
+            'Discount cannot be greater than the purchase amount',
+          );
+        }
+
+        // ----------------------------------------------------
         // Update purchase
         // ----------------------------------------------------
 
@@ -710,18 +757,12 @@ export class PurchaseService {
             ...(dto.note !== undefined && {
               note: dto.note,
             }),
-
-            ...(dto.deliveryFee !== undefined && {
-              deliveryFee: new Prisma.Decimal(dto.deliveryFee),
-            }),
-
-            ...(dto.discount !== undefined && {
-              discount: new Prisma.Decimal(dto.discount),
-            }),
-
-            ...(dto.tax !== undefined && {
-              tax: new Prisma.Decimal(dto.tax),
-            }),
+            deliveryFee,
+            discount,
+            discountPercent,
+            packagingFee,
+            tax,
+            totalAmount: total,
           },
 
           include: {
@@ -733,32 +774,6 @@ export class PurchaseService {
             },
           },
         });
-
-        // ----------------------------------------------------
-        // Calculate updated totals
-        // ----------------------------------------------------
-
-        const subtotal = updated.purchaseItems.reduce((sum, item) => {
-          const price = new Prisma.Decimal(item.price);
-
-          const quantity = new Prisma.Decimal(item.quantity);
-
-          return sum.plus(price.mul(quantity));
-        }, new Prisma.Decimal(0));
-
-        const deliveryFee = new Prisma.Decimal(updated.deliveryFee ?? 0);
-
-        const discount = new Prisma.Decimal(updated.discount ?? 0);
-
-        const tax = new Prisma.Decimal(updated.tax ?? 0);
-
-        const total = subtotal.plus(deliveryFee).plus(tax).minus(discount);
-
-        if (total.lessThan(0)) {
-          throw new ForbiddenException(
-            'Discount cannot be greater than the purchase amount',
-          );
-        }
 
         return {
           updated,
