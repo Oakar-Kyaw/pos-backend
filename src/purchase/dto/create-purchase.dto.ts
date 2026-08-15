@@ -38,6 +38,20 @@ export class CreatePurchaseDto {
   @IsInt()
   @Min(0)
   @Type(() => Number)
+  readonly discountPercent: number;
+
+  @Expose()
+  @IsNotEmpty()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  readonly packagingFee: number;
+
+  @Expose()
+  @IsNotEmpty()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
   readonly deliveryFee: number;
 
   @Expose()

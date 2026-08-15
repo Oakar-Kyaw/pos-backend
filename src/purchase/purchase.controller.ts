@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -75,8 +76,8 @@ export class PurchaseController {
 
   @Delete(':id')
   remove(@Req() req, @Param('id') id: string) {
-    const { id: userId, companyId, branchId } = req.user;
-
+    const { id: userId, companyId, branchId, role } = req.user;
+    if (role != 'ADMIN') throw new ForbiddenException('User is not Admin');
     return this.purchaseService.remove(+id, userId, companyId, branchId);
   }
 }

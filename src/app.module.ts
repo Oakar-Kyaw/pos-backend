@@ -29,6 +29,7 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 import { RabbitMQModule } from './rabbitmq/rabbitmq.module';
 import { PurchaseModule } from './purchase/purchase.module';
 import { SupplierModule } from './supplier/supplier.module';
+import { CustomerModule } from './customer/customer.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -72,6 +73,7 @@ import { SupplierModule } from './supplier/supplier.module';
     RabbitMQModule,
     PurchaseModule,
     SupplierModule,
+    CustomerModule,
   ],
   controllers: [AppController],
   providers: [AppService],

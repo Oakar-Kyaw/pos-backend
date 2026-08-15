@@ -199,6 +199,7 @@ model Branch {
   voucherCounters VoucherCounter[]
   suppliers  Supplier[]
   purchases  Purchase[]
+  customers  Customer[]
 
   @@index([companyId])
 }
@@ -251,6 +252,7 @@ model Company {
   notificationDeviceTokens NotificationDeviceToken[]
   purchases           Purchase[]
   suppliers           Supplier[]
+  customers           Customer[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt @default(now())
 }
@@ -705,7 +707,9 @@ model Purchase {
   isDeleted     Boolean    @default(false)
 
   deliveryFee   Decimal  @default(0) @db.Decimal(12, 2)
+  packagingFee   Decimal  @default(0) @db.Decimal(12, 2)
   discount      Decimal  @default(0) @db.Decimal(12, 2)
+  discountPercent Decimal @default(0) @db.Decimal(12,0)
   tax           Decimal  @default(0) @db.Decimal(12, 2)
 
   purchaseItems PurchaseItem[]
@@ -742,6 +746,32 @@ model Supplier {
   isDeleted Boolean  @default(false)
 
   purchases Purchase[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([email])
+}
+
+model Customer {
+  id        Int      @id @default(autoincrement())
+
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+
+  companyId Int
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  branchId  Int?
+  branch    Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  isDeleted Boolean  @default(false)
+
+  vouchers  Voucher[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -980,6 +1010,9 @@ model Voucher {
 
   branchId Int?
   branch   Branch? @relation("VoucherBranch", fields: [branchId], references: [id])
+
+  customerId Int?
+  Customer   Customer? @relation( fields: [customerId], references: [id])
 
   items         VoucherItem[]
   payments      Payment[]

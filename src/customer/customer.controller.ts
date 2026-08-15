@@ -11,19 +11,19 @@ import {
   Req,
 } from '@nestjs/common';
 
-import { SupplierService } from './supplier.service';
-import { CreateSupplierDto } from './dto/create-supplier.dto';
-import { UpdateSupplierDto } from './dto/update-supplier.dto';
+import { CustomerService } from './customer.service';
+import { CreateCustomerDto } from './dto/create-customer.dto';
+import { UpdateCustomerDto } from './dto/update-customer.dto';
 
-@Controller('api/v1/suppliers')
-export class SupplierController {
-  constructor(private readonly supplierService: SupplierService) {}
+@Controller('api/v1/customers')
+export class CustomerController {
+  constructor(private readonly customerService: CustomerService) {}
 
   @Post()
-  create(@Req() req, @Body() createSupplierDto: CreateSupplierDto) {
+  create(@Req() req, @Body() createCustomerDto: CreateCustomerDto) {
     const { id: userId, companyId } = req.user;
 
-    return this.supplierService.create(createSupplierDto, userId, companyId);
+    return this.customerService.create(createCustomerDto, userId, companyId);
   }
 
   @Get()
@@ -35,7 +35,7 @@ export class SupplierController {
   ) {
     const { id: userId, companyId, branchId } = req.user;
 
-    return this.supplierService.findAll(
+    return this.customerService.findAll(
       userId,
       companyId,
       branchId,
@@ -49,20 +49,20 @@ export class SupplierController {
   findOne(@Req() req, @Param('id') id: string) {
     const { id: userId, companyId, branchId } = req.user;
 
-    return this.supplierService.findOne(+id, userId, companyId, branchId);
+    return this.customerService.findOne(+id, userId, companyId, branchId);
   }
 
   @Patch(':id')
   update(
     @Req() req,
     @Param('id') id: string,
-    @Body() updateSupplierDto: UpdateSupplierDto,
+    @Body() updateCustomerDto: UpdateCustomerDto,
   ) {
     const { id: userId, companyId, branchId } = req.user;
 
-    return this.supplierService.update(
+    return this.customerService.update(
       +id,
-      updateSupplierDto,
+      updateCustomerDto,
       userId,
       companyId,
       branchId,
@@ -73,6 +73,6 @@ export class SupplierController {
   remove(@Req() req, @Param('id') id: string) {
     const { id: userId, companyId, branchId, role } = req.user;
     if (role != 'ADMIN') throw new ForbiddenException('User is not Admin');
-    return this.supplierService.remove(+id, userId, companyId, branchId);
+    return this.customerService.remove(+id, userId, companyId, branchId);
   }
 }

@@ -107,6 +107,10 @@ export class PurchaseService {
 
         const discount = new Prisma.Decimal(dto.discount ?? 0);
 
+        const discountPercent = new Prisma.Decimal(dto.discountPercent ?? 0);
+
+        const packagingFee = new Prisma.Decimal(dto.packagingFee ?? 0);
+
         const tax = new Prisma.Decimal(dto.tax ?? 0);
 
         // ------------------------------------------------------
@@ -146,6 +150,8 @@ export class PurchaseService {
 
             deliveryFee,
             discount,
+            discountPercent,
+            packagingFee,
             tax,
 
             // requestItems: {

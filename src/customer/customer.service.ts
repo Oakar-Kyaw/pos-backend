@@ -6,14 +6,15 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
-import { CreateSupplierDto } from './dto/create-supplier.dto';
-import { UpdateSupplierDto } from './dto/update-supplier.dto';
+
+import { CreateCustomerDto } from './dto/create-customer.dto';
+import { UpdateCustomerDto } from './dto/update-customer.dto';
 
 @Injectable()
-export class SupplierService {
+export class CustomerService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateSupplierDto, userId: number, companyId: number) {
+  async create(dto: CreateCustomerDto, userId: number, companyId: number) {
     try {
       // Validate branch belongs to this company
       if (dto.branchId !== undefined) {
@@ -29,9 +30,9 @@ export class SupplierService {
         }
       }
 
-      // Prevent duplicate supplier email inside the company
+      // Prevent duplicate customer email inside the company
       if (dto.email) {
-        const existing = await this.prisma.supplier.findFirst({
+        const existing = await this.prisma.customer.findFirst({
           where: {
             companyId,
             email: dto.email,
@@ -41,12 +42,12 @@ export class SupplierService {
 
         if (existing) {
           throw new ConflictException(
-            'Supplier with this email already exists',
+            'Customer with this email already exists',
           );
         }
       }
 
-      const supplier = await this.prisma.supplier.create({
+      const customer = await this.prisma.customer.create({
         data: {
           name: dto.name,
           email: dto.email,
@@ -59,11 +60,11 @@ export class SupplierService {
 
       return {
         success: true,
-        message: 'Supplier created successfully',
-        data: supplier,
+        message: 'Customer created successfully',
+        data: customer,
       };
     } catch (error) {
-      console.error('Supplier create error:', error);
+      console.error('Customer create error:', error);
 
       if (
         error instanceof NotFoundException ||
@@ -72,7 +73,7 @@ export class SupplierService {
         throw error;
       }
 
-      throw new ForbiddenException('Unable to create supplier');
+      throw new ForbiddenException('Unable to create customer');
     }
   }
 
@@ -86,7 +87,7 @@ export class SupplierService {
   ) {
     const skip = (page - 1) * limit;
 
-    const where: Prisma.SupplierWhereInput = {
+    const where: Prisma.CustomerWhereInput = {
       companyId,
       isDeleted: false,
 
@@ -119,7 +120,7 @@ export class SupplierService {
     };
 
     const [data, total] = await this.prisma.$transaction([
-      this.prisma.supplier.findMany({
+      this.prisma.customer.findMany({
         where,
 
         include: {
@@ -130,18 +131,20 @@ export class SupplierService {
           id: 'desc',
         },
 
-        // skip,
-        // take: limit,
+        skip,
+        take: limit,
       }),
 
-      this.prisma.supplier.count({
+      this.prisma.customer.count({
         where,
       }),
     ]);
 
+    console.log('customer data: ', data, where);
+
     return {
       success: true,
-      message: 'Suppliers fetched successfully',
+      message: 'Customers fetched successfully',
       data,
 
       meta: {
@@ -159,7 +162,7 @@ export class SupplierService {
     companyId: number,
     branchId?: number,
   ) {
-    const supplier = await this.prisma.supplier.findFirst({
+    const customer = await this.prisma.customer.findFirst({
       where: {
         id,
         companyId,
@@ -172,41 +175,32 @@ export class SupplierService {
 
       include: {
         branch: true,
-        purchases: {
-          where: {
-            isDeleted: false,
-          },
-
-          orderBy: {
-            id: 'desc',
-          },
-        },
       },
     });
 
-    if (!supplier) {
+    if (!customer) {
       throw new NotFoundException({
         success: false,
-        message: 'Supplier not found',
+        message: 'Customer not found',
         data: null,
       });
     }
 
     return {
       success: true,
-      message: 'Supplier fetched successfully',
-      data: supplier,
+      message: 'Customer fetched successfully',
+      data: customer,
     };
   }
 
   async update(
     id: number,
-    dto: UpdateSupplierDto,
+    dto: UpdateCustomerDto,
     userId: number,
     companyId: number,
     branchId?: number,
   ) {
-    // Make sure supplier belongs to this company/branch
+    // Make sure customer belongs to this company/branch
     await this.findOne(id, userId, companyId, branchId);
 
     // Validate new branch
@@ -225,7 +219,7 @@ export class SupplierService {
 
     // Check duplicate email
     if (dto.email) {
-      const existing = await this.prisma.supplier.findFirst({
+      const existing = await this.prisma.customer.findFirst({
         where: {
           companyId,
           email: dto.email,
@@ -238,11 +232,11 @@ export class SupplierService {
       });
 
       if (existing) {
-        throw new ConflictException('Supplier with this email already exists');
+        throw new ConflictException('Customer with this email already exists');
       }
     }
 
-    const updated = await this.prisma.supplier.update({
+    const updated = await this.prisma.customer.update({
       where: {
         id,
       },
@@ -272,7 +266,7 @@ export class SupplierService {
 
     return {
       success: true,
-      message: 'Supplier updated successfully',
+      message: 'Customer updated successfully',
       data: updated,
     };
   }
@@ -285,7 +279,7 @@ export class SupplierService {
   ) {
     await this.findOne(id, userId, companyId, branchId);
 
-    const deleted = await this.prisma.supplier.update({
+    const deleted = await this.prisma.customer.update({
       where: {
         id,
       },
@@ -297,7 +291,7 @@ export class SupplierService {
 
     return {
       success: true,
-      message: 'Supplier deleted successfully',
+      message: 'Customer deleted successfully',
       data: deleted,
     };
   }
