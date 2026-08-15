@@ -119,7 +119,15 @@ export class PurchaseService {
         // total = subtotal + deliveryFee + tax - discount
         // ------------------------------------------------------
 
-        const total = subtotal.plus(deliveryFee).plus(tax).minus(discount);
+        const baseTotal = subtotal
+          .plus(deliveryFee)
+          .plus(tax)
+          .plus(discount)
+          .plus(packagingFee);
+
+        const percentageDiscount = baseTotal.mul(discountPercent).div(100);
+
+        const total = baseTotal.minus(percentageDiscount);
 
         // Prevent negative total
         if (total.lessThan(0)) {
@@ -153,6 +161,7 @@ export class PurchaseService {
             discountPercent,
             packagingFee,
             tax,
+            totalAmount: total
 
             // requestItems: {
             //   create: (dto.requestItems ?? []).map((item) => ({

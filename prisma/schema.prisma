@@ -707,7 +707,8 @@ model Purchase {
   isDeleted     Boolean    @default(false)
 
   deliveryFee   Decimal  @default(0) @db.Decimal(12, 2)
-  packagingFee   Decimal  @default(0) @db.Decimal(12, 2)
+  packagingFee  Decimal  @default(0) @db.Decimal(12, 2)
+  totalAmount   Decimal  @default(0) @db.Decimal(12, 2)
   discount      Decimal  @default(0) @db.Decimal(12, 2)
   discountPercent Decimal @default(0) @db.Decimal(12,0)
   tax           Decimal  @default(0) @db.Decimal(12, 2)
