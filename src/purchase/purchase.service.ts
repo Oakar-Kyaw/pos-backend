@@ -280,12 +280,12 @@ export class PurchaseService {
   // ============================================================
 
   async findAll(
-    userId: number,
     companyId: number,
     branchId: number,
     page = 1,
     limit = 10,
     search?: string,
+    supplierId?: number,
   ) {
     const skip = (page - 1) * limit;
 
@@ -296,6 +296,10 @@ export class PurchaseService {
 
       ...(branchId !== undefined && {
         branchId,
+      }),
+      // filter with supplierid
+      ...(supplierId !== undefined && {
+        supplierId,
       }),
 
       ...(search?.trim() && {

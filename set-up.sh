@@ -1,9 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "Install git pull"
-
-sudo apt update && sudo apt install -y git nodejs npm
+echo "Install docker"
 
 # Add Docker's official GPG key:
 sudo apt update
