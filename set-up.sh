@@ -44,4 +44,6 @@ sudo systemctl enable --now docker
 echo "Docker status:"
 sudo systemctl --no-pager status docker
 
+sudo npm install -g @infisical/cli
+
 echo "End successfully 💃🏿"
