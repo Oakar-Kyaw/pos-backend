@@ -37,16 +37,43 @@ export class PurchaseController {
     @Query('page') page = '1',
     @Query('limit') limit = '10',
     @Query('search') search?: string,
+    @Query('supplierId') supplierId?: number,
+    @Query('startDate') startDate?: Date,
+    @Query('endDate') endDate?: Date,
   ) {
     const { id: userId, companyId, branchId } = req.user;
-
+    console.log('start and end is: ', supplierId, startDate, endDate);
     return this.purchaseService.findAll(
-      userId,
+      companyId,
+      branchId,
+      Number(page),
+      Number(limit),
+      // search,
+      // supplierId,
+    );
+  }
+
+  @Get('filter')
+  findByfilter(
+    @Req() req,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+    @Query('search') search?: string,
+    @Query('supplierId') supplierId?: number,
+    @Query('startDate') startDate?: Date,
+    @Query('endDate') endDate?: Date,
+  ) {
+    const { id: userId, companyId, branchId } = req.user;
+    //console.log('start and end is: ', supplierId, startDate, endDate);
+    return this.purchaseService.findByFilter(
       companyId,
       branchId,
       Number(page),
       Number(limit),
       search,
+      supplierId,
+      startDate,
+      endDate,
     );
   }
 
