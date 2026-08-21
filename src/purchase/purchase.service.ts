@@ -279,14 +279,7 @@ export class PurchaseService {
   // FIND ALL
   // ============================================================
 
-  async findAll(
-    companyId: number,
-    branchId: number,
-    page = 1,
-    limit = 10,
-    search?: string,
-    supplierId?: number,
-  ) {
+  async findAll(companyId: number, branchId: number, page = 1, limit = 10) {
     const skip = (page - 1) * limit;
 
     const where: Prisma.PurchaseWhereInput = {
@@ -298,29 +291,29 @@ export class PurchaseService {
         branchId,
       }),
       // filter with supplierid
-      ...(supplierId !== undefined && {
-        supplierId,
-      }),
+      // ...(supplierId !== undefined && {
+      //   supplierId,
+      // }),
 
-      ...(search?.trim() && {
-        OR: [
-          {
-            note: {
-              contains: search.trim(),
-              mode: 'insensitive',
-            },
-          },
+      // ...(search?.trim() && {
+      //   OR: [
+      //     {
+      //       note: {
+      //         contains: search.trim(),
+      //         mode: 'insensitive',
+      //       },
+      //     },
 
-          {
-            supplier: {
-              email: {
-                contains: search.trim(),
-                mode: 'insensitive',
-              },
-            },
-          },
-        ],
-      }),
+      //     {
+      //       supplier: {
+      //         email: {
+      //           contains: search.trim(),
+      //           mode: 'insensitive',
+      //         },
+      //       },
+      //     },
+      //   ],
+      // }),
     };
 
     const [data, total] = await this.prisma.$transaction([
@@ -353,6 +346,111 @@ export class PurchaseService {
     return {
       success: true,
       message: 'Purchases fetched successfully',
+
+      data,
+
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  // ============================================================
+  // FIND BY FILTER
+  // ============================================================
+
+  async findByFilter(
+    companyId: number,
+    branchId: number,
+    page = 1,
+    limit = 20,
+    search?: string,
+    supplierId?: number,
+    startDate?: Date,
+    endDate?: Date,
+  ) {
+    const skip = (page - 1) * limit;
+    console.log('start date and end is by filter ', startDate, endDate);
+
+    const where: Prisma.PurchaseWhereInput = {
+      companyId,
+
+      isDeleted: false,
+
+      ...(startDate &&
+        endDate && {
+          orderDate: {
+            gte: new Date(startDate),
+            lte: new Date(endDate),
+          },
+        }),
+
+      ...(branchId !== undefined && {
+        branchId,
+      }),
+
+      ...(supplierId !== undefined && {
+        supplierId,
+      }),
+
+      ...(search?.trim() && {
+        OR: [
+          {
+            note: {
+              contains: search.trim(),
+              mode: 'insensitive',
+            },
+          },
+          {
+            supplier: {
+              email: {
+                contains: search.trim(),
+                mode: 'insensitive',
+              },
+            },
+          },
+        ],
+      }),
+    };
+
+    console.log('filter where:', where);
+    console.log('page:', page);
+    console.log('limit:', limit);
+    console.log('skip:', skip);
+
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.purchase.findMany({
+        where,
+
+        include: {
+          supplier: true,
+
+          purchaseItems: {
+            include: {
+              product: true,
+            },
+          },
+        },
+
+        orderBy: {
+          id: 'desc',
+        },
+
+        skip,
+        take: limit,
+      }),
+
+      this.prisma.purchase.count({
+        where,
+      }),
+    ]);
+
+    return {
+      success: true,
+      message: 'Purchases by filter fetched successfully',
 
       data,
 
