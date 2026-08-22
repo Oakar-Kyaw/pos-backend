@@ -191,7 +191,7 @@ export class PurchaseService {
 
                 price: new Prisma.Decimal(item.price),
 
-                costPrice: new Prisma.Decimal(item.costPrice),
+                // costPrice: new Prisma.Decimal(item.costPrice),
               })),
             },
           },
@@ -752,7 +752,7 @@ export class PurchaseService {
 
               price: new Prisma.Decimal(item.price),
 
-              costPrice: new Prisma.Decimal(item.costPrice),
+              // costPrice: new Prisma.Decimal(item.costPrice),
             })),
           });
         }

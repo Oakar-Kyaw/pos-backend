@@ -22,10 +22,10 @@ export class CreatePurchaseItemDto {
   @Type(() => Number)
   readonly price: number;
 
-  @Expose()
-  @IsNotEmpty()
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  readonly costPrice: number;
+  // @Expose()
+  // @IsNotEmpty()
+  // @IsNumber()
+  // @Min(0)
+  // @Type(() => Number)
+  // readonly costPrice: number;
 }
