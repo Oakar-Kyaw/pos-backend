@@ -130,8 +130,8 @@ export class SupplierService {
           id: 'desc',
         },
 
-        // skip,
-        // take: limit,
+        skip,
+        take: limit,
       }),
 
       this.prisma.supplier.count({
