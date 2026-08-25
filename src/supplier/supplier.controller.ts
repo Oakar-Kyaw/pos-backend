@@ -45,6 +45,24 @@ export class SupplierController {
     );
   }
 
+  @Get('filter')
+  findByfilter(
+    @Req() req,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+    @Query('search') search?: string,
+  ) {
+    const { id: userId, companyId, branchId } = req.user;
+    //console.log('start and end is: ', supplierId, startDate, endDate);
+    return this.supplierService.findByFilter(
+      companyId,
+      branchId,
+      Number(page),
+      Number(limit),
+      search,
+    );
+  }
+
   @Get(':id')
   findOne(@Req() req, @Param('id') id: string) {
     const { id: userId, companyId, branchId } = req.user;

@@ -156,6 +156,77 @@ export class CustomerService {
     };
   }
 
+  // ============================================================
+  // FIND BY FILTER
+  // ============================================================
+
+  async findByFilter(
+    companyId: number,
+    branchId: number,
+    page = 1,
+    limit = 20,
+    search?: string,
+  ) {
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.CustomerWhereInput = {
+      companyId,
+
+      isDeleted: false,
+
+      ...(branchId !== undefined && {
+        branchId,
+      }),
+
+      ...(search?.trim() && {
+        OR: [
+          {
+            name: {
+              contains: search.trim(),
+              mode: 'insensitive',
+            },
+          },
+        ],
+      }),
+    };
+
+    console.log('filter where:', where);
+    console.log('page:', page);
+    console.log('limit:', limit);
+    console.log('skip:', skip);
+
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.customer.findMany({
+        where,
+
+        orderBy: {
+          id: 'desc',
+        },
+
+        skip,
+        take: limit,
+      }),
+
+      this.prisma.customer.count({
+        where,
+      }),
+    ]);
+
+    return {
+      success: true,
+      message: 'Customer by filter fetched successfully',
+
+      data,
+
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
   async findOne(
     id: number,
     userId: number,
