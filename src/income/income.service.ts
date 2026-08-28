@@ -138,6 +138,7 @@ export class IncomeService {
         COALESCE(SUM("deliveryFee"), 0) AS "deliveryFee",
         COALESCE(SUM("tax"), 0) AS "tax",
         COALESCE(SUM("subTotal"), 0) AS "subTotal"
+        
       FROM "Voucher"
       WHERE "companyId" = ${companyId} 
         AND "createdAt" >= ${startDate}

@@ -68,6 +68,13 @@ export class CreateVoucherDto {
   @IsNumber()
   @Type(() => Number)
   @Min(0)
+  readonly packagingFee?: number;
+
+  @Expose()
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  @Min(0)
   readonly totalPaymentAmount?: number;
 
   @Expose()

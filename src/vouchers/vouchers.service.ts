@@ -49,7 +49,8 @@ export class VouchersService {
       const deliveryFee = dto?.deliveryFee ?? 0;
       const discountAmount = dto.discountAmount ?? 0;
       const discountPercent = dto.discountPercent ?? 0;
-      const total = subTotal + tax + deliveryFee;
+      const packagingFee = dto.packagingFee ?? 0;
+      const total = subTotal + tax + deliveryFee + packagingFee;
 
       // percentage-based discount, guarded against 0/negative
       const percentDiscountAmount =
@@ -142,6 +143,7 @@ export class VouchersService {
             subTotal,
             tax,
             deliveryFee,
+            packagingFee: dto.packagingFee ?? 0,
             totalPaymentAmount: dto.totalPaymentAmount,
             remainingPaymentAmount: dto.remainingPaymentAmount,
             total: totalWithTaxAndDiscount,
@@ -174,6 +176,21 @@ export class VouchersService {
             type: payData.type,
           })),
         });
+
+        //add amount in balance
+        // const values: Prisma.Sql[] = dto.payments.map(
+        //   (payment) =>
+        //     Prisma.sql`(${payment.paymentDataId}, ${payment.amount})`,
+        // );
+
+        // await tx.$executeRaw`
+        //  UPDATE "PaymentData" As pd
+        //  SET balance = pd.balance + v.amount::numeric
+        //  FROM (
+        //   VALUES ${Prisma.join(values)}
+        //  ) As v(id, amount)
+        //  WHERE pd.id = v.id::integer
+        // `;
 
         return createdVoucher;
       });
@@ -392,6 +409,7 @@ export class VouchersService {
   }
 
   // ================= UPDATE =================
+  // last update
   async update(
     id: number,
     dto: UpdateVoucherDto,

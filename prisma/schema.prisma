@@ -970,6 +970,7 @@ model User {
   repay   Repay[]
   notifictionDeviceToken NotificationDeviceToken[] 
   purchases   Purchase[]
+  auditLogs   AuditLogs[]
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -995,6 +996,7 @@ model Voucher {
   debt          Decimal @default(0.00) @db.Decimal(12, 2)
   discountPercent Decimal @default(0.00) @db.Decimal(12, 2)
   discountAmount Decimal @default(0.00) @db.Decimal(12, 2)
+  packagingFee Decimal @default(0.00) @db.Decimal(12, 2)
   existDebt     Boolean @default(false)
 
   note          String?
@@ -1057,3 +1059,14 @@ model VoucherItem {
 
   @@index([voucherId])
 }
+
+model AuditLogs {
+  id Int @id @default(autoincrement())
+  isDeleted Boolean @default(false)
+  title   String
+  description String
+  userId    Int 
+  User      User @relation(fields: [userId], references: [id]) 
+  createdAt DateTime @default(now())
+}
+
