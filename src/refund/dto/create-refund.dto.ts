@@ -9,9 +9,11 @@ import {
   ValidateNested,
   IsArray,
   Min,
+  ArrayNotEmpty,
 } from 'class-validator';
 import { PaymentType } from '@prisma/client';
 import { CreateRefundItemDto } from './create-refund-item.dto';
+import { CreateRefundPaymentDto } from './refund-payment.dto';
 
 export class CreateRefundDto {
   @Expose()
@@ -51,4 +53,11 @@ export class CreateRefundDto {
   @ValidateNested({ each: true })
   @Type(() => CreateRefundItemDto)
   readonly refundItems: CreateRefundItemDto[];
+
+  @Expose()
+  @IsArray()
+  @ArrayNotEmpty()
+  @ValidateNested({ each: true })
+  @Type(() => CreateRefundPaymentDto)
+  readonly refundPayment: CreateRefundPaymentDto[];
 }

@@ -1,21 +1,24 @@
 import { Expose, Type } from 'class-transformer';
-import { IsNotEmpty, IsNumber, IsOptional, IsInt, Min } from 'class-validator';
+import { IsNotEmpty, IsNumber, Min } from 'class-validator';
 
 export class CreateRefundItemDto {
   @Expose()
-  @IsOptional()
-  @IsInt()
-  readonly productId?: number;
+  @IsNotEmpty()
+  @IsNumber()
+  @Type(() => Number)
+  readonly productId: number;
 
   @Expose()
   @IsNotEmpty()
-  @IsInt()
+  @IsNumber()
+  @Type(() => Number)
   @Min(1)
   readonly quantity: number;
 
   @Expose()
   @IsNotEmpty()
   @IsNumber()
+  @Type(() => Number)
   @Min(0)
   readonly price: number;
 }

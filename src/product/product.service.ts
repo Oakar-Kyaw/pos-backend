@@ -31,22 +31,40 @@ export class ProductService {
   ) {
     try {
       // console.log('dto is ', dto, companyId);
-      const product = await this.prisma.product.create({
-        data: {
-          name: dto.name,
-          code: dto.code,
-          barcode: dto.barcode,
-          description: dto.description,
-          price: Number(dto.price),
-          costPrice: Number(dto.costPrice),
-          stock: Number(dto.stock) ?? 0,
-          minStock: Number(dto.minStock),
-          categoryId: Number(dto.categoryId),
-          userId: Number(userId),
-          companyId: Number(companyId),
-          ...{ photoUrl },
-        },
+      const product = await this.prisma.$transaction(async (tx) => {
+        const data = await tx.product.create({
+          data: {
+            name: dto.name,
+            code: dto.code,
+            barcode: dto.barcode,
+            description: dto.description,
+            price: Number(dto.price),
+            avgCostPrice: Number(dto.costPrice),
+            costPrice: Number(dto.costPrice),
+            memberSellingPrice: Number(dto.memberSellingPrice),
+            vipSellingPrice: Number(dto.vipSellingPrice),
+            vvipSellingPrice: Number(dto.vvipSellingPrice),
+            stock: Number(dto.stock),
+            minStock: Number(dto.minStock),
+            categoryId: Number(dto.categoryId),
+            userId: Number(userId),
+            companyId: Number(companyId),
+            ...{ photoUrl },
+          },
+        });
+
+        await tx.restockLog.create({
+          data: {
+            restockQty: Number(dto.stock),
+            costPrice: Number(dto.costPrice),
+            avgCostPrice: Number(dto.costPrice),
+            productId: Number(product.id),
+          },
+        });
+
+        return data;
       });
+
       await this.invalidateProductCache(product.companyId);
       return {
         success: true,
@@ -262,23 +280,79 @@ export class ProductService {
     photoUrl?: string,
   ) {
     const oldData = await this.findOne(id, userId);
-    console.log('dto of update is ', dto);
-    const updated = await this.prisma.product.update({
-      where: { id },
-      data: {
-        name: dto.name,
-        code: dto.code,
-        barcode: dto.barcode,
-        description: dto.description,
-        price: dto.price,
-        costPrice: dto.costPrice,
-        stock: dto.stock,
-        minStock: dto.minStock,
-        categoryId: dto.categoryId,
-        isActive: dto.isActive,
-        ...{ photoUrl },
-      },
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const data = await tx.product.update({
+        where: { id },
+        data: {
+          name: dto.name,
+          code: dto.code,
+          barcode: dto.barcode,
+          description: dto.description,
+          price: Number(dto.price),
+          avgCostPrice: Number(dto.costPrice),
+          costPrice: Number(dto.costPrice),
+          memberSellingPrice: Number(dto.memberSellingPrice),
+          vipSellingPrice: Number(dto.vipSellingPrice),
+          vvipSellingPrice: Number(dto.vvipSellingPrice),
+          stock: dto.stock,
+          minStock: dto.minStock,
+          categoryId: dto.categoryId,
+          isActive: dto.isActive,
+          ...{ photoUrl },
+        },
+      });
+
+      const user = await tx.user.findUnique({
+        where: { id: Number(userId) },
+      });
+
+      // ==============================================
+      // BUILD CHANGE LOG — old value != new value ဖြစ်မှသာ ထည့်
+      // ==============================================
+      const old = oldData.data;
+      const changes: string[] = [];
+
+      const track = (label: string, oldVal: any, newVal: any) => {
+        const oldStr = oldVal?.toString?.() ?? String(oldVal);
+        const newStr = newVal?.toString?.() ?? String(newVal);
+        if (oldStr !== newStr) {
+          changes.push(`${label}: ${oldStr} → ${newStr}`);
+        }
+      };
+
+      track('name', old.name, data.name);
+      track('code', old.code, data.code);
+      track('barcode', old.barcode, data.barcode);
+      track('price', old.price, data.price);
+      track('costPrice', old.costPrice, data.costPrice);
+      track('avgCostPrice', old.avgCostPrice, data.avgCostPrice);
+      track(
+        'memberSellingPrice',
+        old.memberSellingPrice,
+        data.memberSellingPrice,
+      );
+      track('vipSellingPrice', old.vipSellingPrice, data.vipSellingPrice);
+      track('vvipSellingPrice', old.vvipSellingPrice, data.vvipSellingPrice);
+      track('stock', old.stock, data.stock);
+      track('minStock', old.minStock, data.minStock);
+      track('categoryId', old.categoryId, data.categoryId);
+      track('isActive', old.isActive, data.isActive);
+
+      const description =
+        changes.length > 0 ? changes.join('\n') : 'No field changes detected';
+
+      await tx.auditLogs.create({
+        data: {
+          title: `Product Updated: ${user?.email ?? 'Unknown'}`,
+          description,
+          userId: Number(userId),
+        },
+      });
+
+      return data;
     });
+
     await this.patchProductInCache({
       companyId: oldData.data.companyId,
       updatedProduct: updated,

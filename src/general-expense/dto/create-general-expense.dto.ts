@@ -6,7 +6,11 @@ import {
   IsDate,
   IsNumber,
   Min,
+  IsArray,
+  ArrayNotEmpty,
+  ValidateNested,
 } from 'class-validator';
+import { CreateGeneralExpensePaymentDto } from './general-expense-payment.dto';
 
 export class CreateGeneralExpenseDto {
   @Expose()
@@ -33,4 +37,11 @@ export class CreateGeneralExpenseDto {
   @IsDate()
   @Type(() => Date)
   readonly date: Date;
+
+  @Expose()
+  @IsArray()
+  @ArrayNotEmpty()
+  @ValidateNested({ each: true })
+  @Type(() => CreateGeneralExpensePaymentDto)
+  readonly generalExpensePayment: CreateGeneralExpensePaymentDto[];
 }

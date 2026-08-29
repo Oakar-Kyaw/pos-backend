@@ -54,6 +54,27 @@ export class CreateProductDto {
   @Min(0)
   readonly costPrice?: number;
 
+  @Expose()
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  @Min(0)
+  readonly memberSellingPrice?: number;
+
+  @Expose()
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  @Min(0)
+  readonly vipSellingPrice?: number;
+
+  @Expose()
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  @Min(0)
+  readonly vvipSellingPrice?: number;
+
   // ===== Stock =====
 
   @Expose()

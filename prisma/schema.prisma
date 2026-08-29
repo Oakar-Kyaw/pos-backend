@@ -182,6 +182,8 @@ model Branch {
   companyId Int
   company   Company @relation(fields: [companyId], references: [id])
 
+  products     Product[]
+
   saleReports        SaleReport[] @relation("branchfromsalereport")
   transfers          Transfer[]   @relation("branchfromtransfer")
   payroll   Payroll[]
@@ -290,6 +292,8 @@ model GeneralExpense {
   user      User     @relation("userFromGeneralExpense", fields: [userId], references: [id])
   userId    Int
 
+  generalExpensePayment GeneralExpensePayment[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   isDeleted Boolean  @default(false)
@@ -298,6 +302,24 @@ model GeneralExpense {
   @@index([branchId])
   @@index([userId])
   @@index([date])
+}
+
+model GeneralExpensePayment {
+  id Int @id @default(autoincrement())
+
+  generalExpenseId Int
+  generalExpense   GeneralExpense @relation(fields: [generalExpenseId], references: [id], onDelete: Cascade)
+
+  paymentDataId Int
+  paymentData   PaymentData @relation(fields: [paymentDataId], references: [id])
+
+  amount Decimal     @db.Decimal(12, 2)
+  type   PaymentType @default(CASH)
+
+  createdAt DateTime @default(now())
+
+  @@index([generalExpenseId])
+
 }
 
 model HrRule {
@@ -459,10 +481,12 @@ model PaymentData {
   isActive Boolean @default(true)
 
   payments Payment[]
+  generalExpensePayment GeneralExpensePayment[]
+  purchasePayment   PurchasePayment[]
   fromAccount Transfer[] @relation("fromAccount")
   toAccount   Transfer[]  @relation("toAccount")
 
-  refunds   Refund[]
+  refundPayment RefundPayment[]
   repays    Repay[]
 
   createdAt DateTime @default(now())
@@ -586,8 +610,12 @@ model Product {
   description String?
   photoUrl    String?
 
-  price     Decimal  @db.Decimal(12, 2)
-  costPrice Decimal? @db.Decimal(12, 2)
+  price     Decimal  @db.Decimal(12, 2)    @default(0)
+  memberSellingPrice Decimal  @db.Decimal(12, 2)    @default(0)
+  vipSellingPrice   Decimal  @db.Decimal(12, 2)    @default(0)
+  vvipSellingPrice  Decimal  @db.Decimal(12, 2)    @default(0)
+  costPrice Decimal? @db.Decimal(12, 2)   @default(0)
+  avgCostPrice Decimal @db.Decimal(12, 2)  @default(0)
 
   stock    Int  @default(0)
   minStock Int?
@@ -598,6 +626,7 @@ model Product {
   refundItems RefundItem[]
   inventoryItems  InventoryItem[]
   purchaseItems   PurchaseItem[]
+  restockLog      RestockLog[]
   // requestItems    RequestItem[]
 
   categoryId Int?
@@ -608,6 +637,9 @@ model Product {
 
   companyId Int
   company   Company @relation(fields: [companyId], references: [id])
+
+  branchId Int?
+  branch   Branch? @relation(fields: [branchId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -625,10 +657,7 @@ model Refund {
   amount      Decimal     @db.Decimal(12, 2)
   reason      String?
 
-  paymentType PaymentType @default(CASH)
   refundType  RefundType  @default(FULL)
-  paymentDataId Int
-  paymentData  PaymentData @relation(fields: [paymentDataId], references: [id])
 
   userId      Int
   user        User        @relation(fields: [userId], references: [id])
@@ -640,6 +669,7 @@ model Refund {
   branch      Branch?     @relation(fields: [branchId], references: [id])
 
   refundItems RefundItem[]
+  refundPayment RefundPayment[]
 
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -660,6 +690,7 @@ model RefundItem {
   product   Product?  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   quantity  Int      @default(0)
+  avgCostPrice Decimal    @db.Decimal(12, 2) @default(0)
   price     Decimal  @db.Decimal(12, 2)
 
   createdAt DateTime @default(now())
@@ -667,6 +698,26 @@ model RefundItem {
   @@index([refundId])
   @@index([productId])
 }
+
+model RefundPayment {
+  id Int @id @default(autoincrement())
+
+  refundId Int
+  refund   Refund @relation(fields: [refundId], references: [id], onDelete: Cascade)
+
+  paymentDataId Int
+  paymentData   PaymentData @relation(fields: [paymentDataId], references: [id])
+
+  amount Decimal     @db.Decimal(12, 2)
+  type   PaymentType @default(CASH)
+
+  createdAt DateTime @default(now())
+
+  @@index([refundId])
+
+}
+
+
 
 model Repay {
   id Int @id @default(autoincrement())
@@ -714,6 +765,7 @@ model Purchase {
   tax           Decimal  @default(0) @db.Decimal(12, 2)
 
   purchaseItems PurchaseItem[]
+  purchasePayments  PurchasePayment[]
 
   // requestItems  RequestItem[]
 
@@ -729,6 +781,25 @@ model Purchase {
   createdBy    Int?
   createdUser  User?    @relation(fields: [createdBy], references: [id], onDelete: Cascade)
 }
+
+model PurchasePayment {
+  id Int @id @default(autoincrement())
+
+  purchaseId Int
+  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  paymentDataId Int
+  paymentData   PaymentData @relation(fields: [paymentDataId], references: [id])
+
+  amount Decimal     @db.Decimal(12, 2)
+  type   PaymentType @default(CASH)
+
+  createdAt DateTime @default(now())
+
+  @@index([purchaseId])
+
+}
+
 
 model Supplier {
   id        Int      @id @default(autoincrement())
@@ -1054,6 +1125,7 @@ model VoucherItem {
   quantity     Int     @default(0)
   price        Decimal @default(0.00) @db.Decimal(12, 2)
   costPrice    Decimal @default(0.00) @db.Decimal(12, 2)
+  avgCostPrice    Decimal @default(0.00) @db.Decimal(12, 2)
 
   createdAt DateTime @default(now())
 
@@ -1070,3 +1142,13 @@ model AuditLogs {
   createdAt DateTime @default(now())
 }
 
+model RestockLog {
+  id Int @id @default(autoincrement())
+  isDeleted Boolean @default(false)
+  restockQty  Int   
+  costPrice Decimal? @db.Decimal(12, 2)   @default(0)
+  avgCostPrice Decimal @db.Decimal(12, 2)  @default(0)
+  productId    Int 
+  product      Product @relation(fields: [productId], references: [id], onDelete: Cascade) 
+  createdAt DateTime @default(now())
+}

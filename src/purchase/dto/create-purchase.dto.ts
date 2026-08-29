@@ -8,9 +8,11 @@ import {
   IsString,
   ValidateNested,
   Min,
+  ArrayNotEmpty,
 } from 'class-validator';
 import { PurchaseStatus } from '@prisma/client';
 import { CreatePurchaseItemDto } from './create-purchase-item.dto';
+import { CreatePurchasePaymentDto } from './purchase-payment.dto';
 
 export class CreatePurchaseDto {
   @Expose()
@@ -88,4 +90,11 @@ export class CreatePurchaseDto {
   @ValidateNested({ each: true })
   @Type(() => CreatePurchaseItemDto)
   readonly purchaseItems: CreatePurchaseItemDto[];
+
+  @Expose()
+  @IsArray()
+  @ArrayNotEmpty()
+  @ValidateNested({ each: true })
+  @Type(() => CreatePurchasePaymentDto)
+  readonly purchasePayment: CreatePurchasePaymentDto[];
 }
