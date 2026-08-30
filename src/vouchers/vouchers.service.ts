@@ -112,7 +112,7 @@ export class VouchersService {
           >`
             UPDATE "Product"
             SET stock = stock - ${item.quantity}
-            WHERE id = ${item.itemId} AND stock >= ${item.quantity}
+            WHERE id = ${item.productId} AND stock >= ${item.quantity}
             RETURNING id, name, stock, "minStock",  "photoUrl" AS "imageUrl"
           `;
 
@@ -120,7 +120,7 @@ export class VouchersService {
             // Either the item doesn't exist, or stock is insufficient
             // (possibly because a concurrent request just took it).
             throw new ForbiddenException(
-              `Insufficient stock for item ${item.itemId}`,
+              `Insufficient stock for item ${item.productId}`,
             );
           }
 
@@ -160,6 +160,7 @@ export class VouchersService {
         await tx.voucherItem.createMany({
           data: dto.items.map((item) => ({
             voucherId: createdVoucher.id,
+            productId: Number(item.productId),
             itemId: item.itemId,
             name: item.name,
             photoUrl: item.photoUrl,
@@ -312,7 +313,11 @@ export class VouchersService {
       const vouchers = await this.prisma.voucher.findMany({
         where,
         include: {
-          items: true,
+          items: {
+            include: {
+              product: true,
+            },
+          },
           payments: {
             include: {
               paymentData: true,
@@ -337,7 +342,11 @@ export class VouchersService {
       this.prisma.voucher.findMany({
         where,
         include: {
-          items: true,
+          items: {
+            include: {
+              product: true,
+            },
+          },
           paymentPhotos: true,
           user: {
             select: {
@@ -382,7 +391,11 @@ export class VouchersService {
         isDeleted: false,
       },
       include: {
-        items: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
         payments: {
           include: {
             paymentData: true,
@@ -445,6 +458,7 @@ export class VouchersService {
           data: dto.items.map((item) => ({
             voucherId: id,
             itemId: item.itemId,
+            productId: item.productId,
             name: item.name,
             photoUrl: item.photoUrl,
             quantity: item.quantity,

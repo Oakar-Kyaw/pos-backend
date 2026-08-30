@@ -13,6 +13,12 @@ export class CreateVoucherItemDto {
   @IsNotEmpty()
   @IsInt()
   @Type(() => Number)
+  readonly productId: number;
+
+  @Expose()
+  @IsNotEmpty()
+  @IsInt()
+  @Type(() => Number)
   readonly itemId: number;
 
   @Expose()

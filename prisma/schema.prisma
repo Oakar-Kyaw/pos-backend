@@ -626,6 +626,7 @@ model Product {
   refundItems RefundItem[]
   inventoryItems  InventoryItem[]
   purchaseItems   PurchaseItem[]
+  voucherItem     VoucherItem[]
   restockLog      RestockLog[]
   // requestItems    RequestItem[]
 
@@ -1117,8 +1118,11 @@ model VoucherItem {
   isDeleted Boolean @default(false)
   voucherId Int
   voucher   Voucher @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  
+  itemId      Int
+  productId   Int?
+  product  Product? @relation(fields: [productId], references: [id])
 
-  itemId   Int
   name     String
   photoUrl String?
 
