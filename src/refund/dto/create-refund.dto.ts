@@ -33,16 +33,6 @@ export class CreateRefundDto {
   readonly reason?: string;
 
   @Expose()
-  @IsNotEmpty()
-  @IsEnum(PaymentType)
-  readonly paymentType: PaymentType;
-
-  @Expose()
-  @IsNotEmpty()
-  @IsInt()
-  readonly paymentDataId: number;
-
-  @Expose()
   @IsOptional()
   @IsEnum(['FULL', 'PARTIAL'])
   readonly refundType?: 'FULL' | 'PARTIAL';
