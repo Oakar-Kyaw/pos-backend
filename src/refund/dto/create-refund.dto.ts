@@ -11,7 +11,6 @@ import {
   Min,
   ArrayNotEmpty,
 } from 'class-validator';
-import { PaymentType } from '@prisma/client';
 import { CreateRefundItemDto } from './create-refund-item.dto';
 import { CreateRefundPaymentDto } from './refund-payment.dto';
 

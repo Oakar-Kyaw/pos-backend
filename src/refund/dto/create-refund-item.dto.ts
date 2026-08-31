@@ -21,4 +21,11 @@ export class CreateRefundItemDto {
   @Type(() => Number)
   @Min(0)
   readonly price: number;
+
+  @Expose()
+  @IsNotEmpty()
+  @IsNumber()
+  @Type(() => Number)
+  @Min(0)
+  readonly avgCostPrice: number;
 }
