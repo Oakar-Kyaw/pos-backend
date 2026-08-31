@@ -1,6 +1,8 @@
 import {
   BadRequestException,
+  HttpException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -25,120 +27,156 @@ export class RefundService {
     companyId: number,
     branchId?: number,
   ) {
-    // Check voucher
-    if (dto.voucherId) {
-      const voucher = await this.prisma.voucher.findFirst({
-        where: {
-          id: dto.voucherId,
-          companyId,
-          isDeleted: false,
-        },
+    try {
+      console.log('created ', dto);
+
+      // Check voucher
+      if (dto.voucherId) {
+        const voucher = await this.prisma.voucher.findFirst({
+          where: {
+            id: dto.voucherId,
+            companyId,
+            isDeleted: false,
+          },
+        });
+
+        if (!voucher) {
+          throw new NotFoundException('Voucher not found');
+        }
+      }
+
+      // Calculate total amount
+      const totalAmount =
+        dto.refundType === 'PARTIAL'
+          ? dto.amount
+          : dto.refundItems.reduce(
+              (sum, item) => sum + item.price * item.quantity,
+              0,
+            );
+
+      const refund = await this.prisma.$transaction(async (tx) => {
+        // Validate payment data
+        await this.checkPaymentData(tx, dto.refundPayment);
+
+        // validate refund item
+        await this.checkRefundItems(tx, dto.refundItems);
+
+        // Calculate refund amount from payments
+        const paymentTotal = dto.refundPayment.reduce(
+          (sum, payment) => sum + payment.amount,
+          0,
+        );
+
+        const amount = new Prisma.Decimal(paymentTotal);
+
+        // Calculate item total
+        const itemTotal = dto.refundItems.reduce(
+          (sum, item) => sum + item.price * item.quantity,
+          0,
+        );
+
+        // Make sure payment amount matches refund items
+        if (amount.toNumber() !== itemTotal) {
+          throw new BadRequestException(
+            `Refund amount mismatch. Items total: ${itemTotal}, Payment total: ${amount.toNumber()}`,
+          );
+        }
+
+        // Create refund
+        const createdRefund = await tx.refund.create({
+          data: {
+            voucherId: dto.voucherId,
+            amount: amount,
+            reason: dto.reason,
+            userId,
+            companyId,
+            ...(branchId && { branchId }),
+            refundType: dto.refundType,
+
+            refundItems: {
+              create: dto.refundItems,
+            },
+
+            refundPayment: {
+              create: dto.refundPayment.map((payment) => ({
+                paymentData: {
+                  connect: {
+                    id: payment.paymentDataId,
+                  },
+                },
+                amount: new Prisma.Decimal(payment.amount),
+                type: payment.type,
+              })),
+            },
+          },
+
+          include: {
+            refundItems: {
+              include: {
+                product: true,
+              },
+            },
+            refundPayment: {
+              include: {
+                paymentData: true,
+              },
+            },
+          },
+        });
+
+        // Mark voucher as refunded
+        if (dto.voucherId) {
+          await tx.voucher.update({
+            where: {
+              id: dto.voucherId,
+            },
+            data: {
+              isRefund: true,
+            },
+          });
+        }
+
+        return createdRefund;
       });
 
-      if (!voucher) {
-        throw new NotFoundException('Voucher not found');
+      return {
+        success: true,
+        message: 'Refund created successfully',
+        data: refund,
+      };
+    } catch (error) {
+      // NestJS ရဲ့ HTTP exception တွေ (NotFoundException, BadRequestException, etc)
+      // ဖြစ်ခဲ့ရင် ဒီအတိုင်း ပြန်ပစ်ပါ - message/status code ကို client ကို မှန်ကန်စွာ ရောက်စေချင်လို့ပါ
+      if (error instanceof HttpException) {
+        throw error;
       }
-    }
 
-    // Calculate total amount
-    const totalAmount =
-      dto.refundType === 'PARTIAL'
-        ? dto.amount
-        : dto.refundItems.reduce(
-            (sum, item) => sum + item.price * item.quantity,
-            0,
-          );
+      // Prisma-specific errors (foreign key violation, unique constraint, record not found, etc)
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        console.error(
+          `Prisma error while creating refund: ${error.code} - ${error.message}`,
+          error.stack,
+        );
 
-    const refund = await this.prisma.$transaction(async (tx) => {
-      // Validate payment data
-      await this.checkPaymentData(tx, dto.refundPayment);
+        if (error.code === 'P2025') {
+          throw new NotFoundException('Related record not found');
+        }
+        if (error.code === 'P2003') {
+          throw new BadRequestException('Invalid reference ID provided');
+        }
 
-      // validate refund item
-      await this.checkRefundItems(tx, dto.refundItems);
-
-      // Calculate refund amount from payments
-      const totalAmount = dto.refundPayment.reduce(
-        (sum, payment) => sum + payment.amount,
-        0,
-      );
-
-      const amount = new Prisma.Decimal(totalAmount);
-
-      // Calculate item total
-      const itemTotal = dto.refundItems.reduce(
-        (sum, item) => sum + item.price * item.quantity,
-        0,
-      );
-
-      // Make sure payment amount matches refund items
-      if (amount.toNumber() !== itemTotal) {
         throw new BadRequestException(
-          `Refund amount mismatch. Items total: ${itemTotal}, Payment total: ${amount.toNumber()}`,
+          'Failed to create refund due to invalid data',
         );
       }
 
-      // Create refund
-      const refund = await tx.refund.create({
-        data: {
-          voucherId: dto.voucherId,
-          amount: amount,
-          reason: dto.reason,
-          userId,
-          companyId,
-          ...(branchId && { branchId }),
-          refundType: dto.refundType,
-
-          refundItems: {
-            create: dto.refundItems,
-          },
-
-          refundPayment: {
-            create: dto.refundPayment.map((payment) => ({
-              paymentData: {
-                connect: {
-                  id: payment.paymentDataId,
-                },
-              },
-              amount: new Prisma.Decimal(payment.amount),
-              type: payment.type,
-            })),
-          },
-        },
-
-        include: {
-          refundItems: {
-            include: {
-              product: true,
-            },
-          },
-          refundPayment: {
-            include: {
-              paymentData: true,
-            },
-          },
-        },
-      });
-
-      // Mark voucher as refunded
-      if (dto.voucherId) {
-        await tx.voucher.update({
-          where: {
-            id: dto.voucherId,
-          },
-          data: {
-            isRefund: true,
-          },
-        });
-      }
-
-      return refund;
-    });
-
-    return {
-      success: true,
-      message: 'Refund created successfully',
-      data: refund,
-    };
+      // မမျှော်လင့်ထားတဲ့ error များ
+      console.error(
+        `Unexpected error while creating refund: ${error?.message ?? error}`,
+        error?.stack,
+      );
+      throw new InternalServerErrorException('Failed to create refund');
+    }
   }
 
   // ============================================================
@@ -202,68 +240,54 @@ export class RefundService {
     const skip = (page - 1) * limit;
 
     const today = new Date();
-    endDate = endDate ? new Date(endDate) : today;
 
-    if (startDate && startDate > endDate) {
-      startDate = endDate;
+    // endDate → ဒီရက်ရဲ့ 23:59:59.999 အထိ
+    const rangeEnd = endDate ? new Date(endDate) : today;
+    rangeEnd.setHours(23, 59, 59, 999);
+
+    // startDate → ဒီရက်ရဲ့ 00:00:00.000
+    let rangeStart = startDate ? new Date(startDate) : undefined;
+    if (rangeStart) {
+      rangeStart.setHours(0, 0, 0, 0);
+      if (rangeStart > rangeEnd) {
+        rangeStart = new Date(rangeEnd);
+        rangeStart.setHours(0, 0, 0, 0);
+      }
     }
 
     const where: Prisma.RefundWhereInput = {
       companyId,
       isDeleted: false,
-
-      ...(branchId && {
-        branchId,
-      }),
-
-      ...(userId && {
-        userId,
-      }),
+      ...(branchId && { branchId }),
+      ...(userId && { userId }),
     };
 
-    if (startDate && endDate) {
+    if (rangeStart) {
       where.createdAt = {
-        gte: startDate,
-        lt: new Date(endDate.getTime() + 24 * 60 * 60 * 1000),
+        gte: rangeStart,
+        lte: rangeEnd,
+      };
+    } else {
+      where.createdAt = {
+        lte: rangeEnd,
       };
     }
 
     const [refunds, total] = await Promise.all([
       this.prisma.refund.findMany({
         where,
-
         include: {
-          refundItems: {
-            include: {
-              product: true,
-            },
-          },
-
+          refundItems: { include: { product: true } },
           refundPayment: {
-            include: {
-              paymentData: true,
-            },
+            include: { paymentData: { include: { payments: true } } },
           },
-
-          voucher: {
-            include: {
-              items: true,
-              payments: true,
-            },
-          },
+          voucher: { include: { items: true, payments: true } },
         },
-
-        orderBy: {
-          id: 'desc',
-        },
-
+        orderBy: { id: 'desc' },
         skip,
         take: limit,
       }),
-
-      this.prisma.refund.count({
-        where,
-      }),
+      this.prisma.refund.count({ where }),
     ]);
 
     return {
