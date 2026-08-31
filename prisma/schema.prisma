@@ -659,6 +659,8 @@ model Refund {
   reason      String?
 
   refundType  RefundType  @default(FULL)
+  
+  date        DateTime    @default(now())
 
   userId      Int
   user        User        @relation(fields: [userId], references: [id])

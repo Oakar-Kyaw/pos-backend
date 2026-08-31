@@ -10,6 +10,7 @@ import {
   IsArray,
   Min,
   ArrayNotEmpty,
+  IsDate,
 } from 'class-validator';
 import { CreateRefundItemDto } from './create-refund-item.dto';
 import { CreateRefundPaymentDto } from './refund-payment.dto';
@@ -30,6 +31,11 @@ export class CreateRefundDto {
   @IsOptional()
   @IsString()
   readonly reason?: string;
+
+  @Expose()
+  @IsNotEmpty()
+  @Type(() => Date)
+  readonly date: Date;
 
   @Expose()
   @IsOptional()

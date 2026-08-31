@@ -28,7 +28,7 @@ export class RefundService {
     branchId?: number,
   ) {
     try {
-      console.log('created ', dto);
+      console.log('created ', dto, new Date(dto.date));
 
       // Check voucher
       if (dto.voucherId) {
@@ -45,15 +45,6 @@ export class RefundService {
         }
       }
 
-      // Calculate total amount
-      const totalAmount =
-        dto.refundType === 'PARTIAL'
-          ? dto.amount
-          : dto.refundItems.reduce(
-              (sum, item) => sum + item.price * item.quantity,
-              0,
-            );
-
       const refund = await this.prisma.$transaction(async (tx) => {
         // Validate payment data
         await this.checkPaymentData(tx, dto.refundPayment);
@@ -62,34 +53,35 @@ export class RefundService {
         await this.checkRefundItems(tx, dto.refundItems);
 
         // Calculate refund amount from payments
-        const paymentTotal = dto.refundPayment.reduce(
-          (sum, payment) => sum + payment.amount,
-          0,
-        );
+        // const paymentTotal = dto.refundPayment.reduce(
+        //   (sum, payment) => sum + payment.amount,
+        //   0,
+        // );
 
-        const amount = new Prisma.Decimal(paymentTotal);
+        // const amount = new Prisma.Decimal(paymentTotal);
 
-        // Calculate item total
-        const itemTotal = dto.refundItems.reduce(
-          (sum, item) => sum + item.price * item.quantity,
-          0,
-        );
+        // // Calculate item total
+        // const itemTotal = dto.refundItems.reduce(
+        //   (sum, item) => sum + item.price * item.quantity,
+        //   0,
+        // );
 
-        // Make sure payment amount matches refund items
-        if (amount.toNumber() !== itemTotal) {
-          throw new BadRequestException(
-            `Refund amount mismatch. Items total: ${itemTotal}, Payment total: ${amount.toNumber()}`,
-          );
-        }
+        // // Make sure payment amount matches refund items
+        // if (amount.toNumber() !== itemTotal) {
+        //   throw new BadRequestException(
+        //     `Refund amount mismatch. Items total: ${itemTotal}, Payment total: ${amount.toNumber()}`,
+        //   );
+        // }
 
         // Create refund
         const createdRefund = await tx.refund.create({
           data: {
             voucherId: dto.voucherId,
-            amount: amount,
+            amount: Prisma.Decimal(dto.amount),
             reason: dto.reason,
             userId,
             companyId,
+            date: dto.date,
             ...(branchId && { branchId }),
             refundType: dto.refundType,
 
@@ -136,9 +128,18 @@ export class RefundService {
           });
         }
 
+        //increase product stock
+        const increaseValues = Prisma.join(
+          createdRefund.refundItems.map(
+            (item) =>
+              Prisma.sql`(${item.productId}::int, ${item.quantity}::int)`,
+          ),
+          ',',
+        );
+        await tx.$executeRaw`UPDATE "Product" AS p SET stock = p.stock + v.qty FROM (VALUES ${increaseValues}) AS v(id, qty) WHERE p.id = v.id`;
+
         return createdRefund;
       });
-
       return {
         success: true,
         message: 'Refund created successfully',
@@ -263,7 +264,7 @@ export class RefundService {
     };
 
     if (rangeStart) {
-      where.createdAt = {
+      where.date = {
         gte: rangeStart,
         lte: rangeEnd,
       };
@@ -362,14 +363,13 @@ export class RefundService {
     userId: number,
     companyId: number,
   ) {
-    const existingRefund = await this.prisma.refund.findFirst({
+    const existingRefund = await this.prisma.refund.findUnique({
       where: {
         id,
-        companyId,
-        isDeleted: false,
       },
       select: {
         voucherId: true,
+        refundItems: true,
         amount: true,
         refundType: true,
       },
@@ -418,7 +418,7 @@ export class RefundService {
       // Payment + Item Validation
       // ============================================================
 
-      let amount: Prisma.Decimal | undefined;
+      const amount: Prisma.Decimal = new Prisma.Decimal(dto.amount!);
 
       // If either payment or items is provided,
       // require both so we can validate the refund amount.
@@ -430,29 +430,42 @@ export class RefundService {
         }
 
         // Calculate amount from payments
-        const paymentTotal = dto.refundPayment.reduce(
-          (sum, payment) => sum + payment.amount,
-          0,
-        );
+        // const paymentTotal = dto.refundPayment.reduce(
+        //   (sum, payment) => sum + payment.amount,
+        //   0,
+        // );
 
-        amount = new Prisma.Decimal(paymentTotal);
+        // const newLocal = amount = new Prisma.Decimal(paymentTotal);
 
         // Calculate amount from items
-        const itemTotal = dto.refundItems.reduce(
-          (sum, item) => sum + item.price * item.quantity,
-          0,
-        );
+        // const itemTotal = dto.refundItems.reduce(
+        //   (sum, item) => sum + item.price * item.quantity,
+        //   0,
+        // );
 
-        // Validate payment total == item total
-        if (amount.toNumber() !== itemTotal) {
-          throw new BadRequestException(
-            `Refund amount mismatch. Items total: ${itemTotal}, Payment total: ${amount.toNumber()}`,
-          );
-        }
+        // // Validate payment total == item total
+        // if (amount.toNumber() !== itemTotal) {
+        //   throw new BadRequestException(
+        //     `Refund amount mismatch. Items total: ${itemTotal}, Payment total: ${amount.toNumber()}`,
+        //   );
+        // }
 
         // ============================================================
         // Delete Existing Refund Items
         // ============================================================
+        //reduce stock coz of update
+        const reduceValues = Prisma.join(
+          existingRefund.refundItems.map(
+            (item) =>
+              Prisma.sql`(${item.productId}::int, ${item.quantity}::int)`,
+          ),
+          ',',
+        );
+        // console.log('value is ', values);
+        // const result =
+        await tx.$executeRaw`UPDATE "Product" AS p SET stock = p.stock - v.qty FROM (VALUES ${reduceValues}) AS v(id, qty) WHERE p.id = v.id`;
+
+        // console.log('Rows affected:', result, values);
 
         await tx.refundItem.deleteMany({
           where: {
@@ -481,6 +494,7 @@ export class RefundService {
         },
 
         data: {
+          date: dto.date,
           ...(dto.voucherId !== undefined && {
             voucherId: dto.voucherId,
           }),
@@ -579,6 +593,15 @@ export class RefundService {
         }
       }
 
+      //increase product stock
+      const increaseValues = Prisma.join(
+        data.refundItems.map(
+          (item) => Prisma.sql`(${item.productId}::int, ${item.quantity}::int)`,
+        ),
+        ',',
+      );
+      await tx.$executeRaw`UPDATE "Product" AS p SET stock = p.stock + v.qty FROM (VALUES ${increaseValues}) AS v(id, qty) WHERE p.id = v.id`;
+
       return data;
     });
 
@@ -594,15 +617,43 @@ export class RefundService {
 
   async remove(id: number, userId: number, companyId: number) {
     await this.findOne(id, userId, companyId);
+    const deleted = await this.prisma.$transaction(async (tx) => {
+      const data = await this.prisma.refund.update({
+        where: {
+          id,
+        },
+        include: {
+          refundItems: {
+            include: {
+              product: true,
+            },
+          },
+        },
 
-    const deleted = await this.prisma.refund.update({
-      where: {
-        id,
-      },
+        data: {
+          isDeleted: true,
+        },
+      });
+      await tx.voucher.update({
+        where: {
+          id: Number(data.voucherId),
+        },
+        data: {
+          isRefund: false,
+        },
+      });
+      //reduce stock coz of delete
+      const reduceValues = Prisma.join(
+        data.refundItems.map(
+          (item) => Prisma.sql`(${item.productId}::int, ${item.quantity}::int)`,
+        ),
+        ',',
+      );
+      // console.log('value is ', values);
+      // const result =
+      await tx.$executeRaw`UPDATE "Product" AS p SET stock = p.stock - v.qty FROM (VALUES ${reduceValues}) AS v(id, qty) WHERE p.id = v.id`;
 
-      data: {
-        isDeleted: true,
-      },
+      return data;
     });
 
     return {
