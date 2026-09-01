@@ -107,4 +107,11 @@ export class PurchaseController {
     if (role != 'ADMIN') throw new ForbiddenException('User is not Admin');
     return this.purchaseService.remove(+id, userId, companyId, branchId);
   }
+
+  @Patch('/confirm/:id')
+  updateConfirm(@Req() req, @Param('id') id: string) {
+    const { id: userId, companyId, branchId } = req.user;
+
+    return this.purchaseService.updateSuccess(+id);
+  }
 }

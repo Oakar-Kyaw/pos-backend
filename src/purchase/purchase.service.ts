@@ -195,12 +195,6 @@ export class PurchaseService {
           },
         });
 
-        // ========================================================
-        // INCREASE PRODUCT STOCK
-        // ========================================================
-
-        await this.updateStock(tx, dto.purchaseItems ?? []);
-
         return {
           created,
           subtotal,
@@ -702,69 +696,6 @@ export class PurchaseService {
         // ========================================================
 
         if (dto.purchaseItems !== undefined) {
-          const oldStockMap = new Map<number, number>();
-
-          const newStockMap = new Map<number, number>();
-
-          // OLD ITEMS
-          for (const item of existingPurchase.purchaseItems) {
-            const productId = item.productId;
-
-            if (productId == null) {
-              continue;
-            }
-
-            oldStockMap.set(
-              productId,
-              (oldStockMap.get(productId) ?? 0) + item.quantity,
-            );
-          }
-
-          // NEW ITEMS
-          for (const item of dto.purchaseItems) {
-            const productId = item.productId;
-
-            if (productId == null) {
-              continue;
-            }
-
-            newStockMap.set(
-              productId,
-              (newStockMap.get(productId) ?? 0) + item.quantity,
-            );
-          }
-
-          // ALL AFFECTED PRODUCTS
-          const productIds = new Set<number>([
-            ...oldStockMap.keys(),
-            ...newStockMap.keys(),
-          ]);
-
-          // UPDATE STOCK DIFFERENCE
-          for (const productId of productIds) {
-            const oldQuantity = oldStockMap.get(productId) ?? 0;
-
-            const newQuantity = newStockMap.get(productId) ?? 0;
-
-            const difference = newQuantity - oldQuantity;
-
-            if (difference === 0) {
-              continue;
-            }
-
-            await tx.product.update({
-              where: {
-                id: productId,
-              },
-
-              data: {
-                stock: {
-                  increment: difference,
-                },
-              },
-            });
-          }
-
           // DELETE OLD ITEMS
           await tx.purchaseItem.deleteMany({
             where: {
@@ -992,6 +923,76 @@ export class PurchaseService {
       return {
         success: true,
         message: 'Purchase deleted successfully',
+        data: result,
+      };
+    } catch (error) {
+      console.error('Purchase delete error:', error);
+
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+
+      throw new ForbiddenException('Unable to delete purchase');
+    }
+  }
+
+  async updateSuccess(id: number) {
+    console.log('update is success is ', id);
+    try {
+      const result = await this.prisma.$transaction(async (tx) => {
+        const purchase = await tx.purchase.findUnique({
+          where: {
+            id,
+          },
+
+          include: {
+            purchaseItems: true,
+          },
+        });
+
+        if (!purchase) {
+          throw new NotFoundException('Purchase not found');
+        }
+
+        // ======================================================
+        // UPDATE STOCK
+        // ======================================================
+        const values = Prisma.join(
+          purchase.purchaseItems.map(
+            (pr) =>
+              Prisma.sql`(${pr.productId}::int, ${pr.quantity}::int, ${pr.price}::int)`,
+          ),
+          ',',
+        );
+
+        await tx.$executeRaw`
+          UPDATE "Product" AS p
+          SET
+            "stock" = p."stock" + v.qty,
+            "costPrice" = v.price,
+            "avgCostPrice" = ((p."price" * p."stock") + (v.price * v.qty)) / (p.stock + v.qty)
+          FROM (VALUES ${values}) AS v(id, qty, price)
+          WHERE p.id = v.id
+        `;
+        const data = await tx.purchase.update({
+          where: {
+            id,
+          },
+          data: {
+            status: 'SUCCESS',
+          },
+        });
+
+        return data;
+      });
+
+      return {
+        success: true,
+        message: 'Purchase confirmed successfully',
         data: result,
       };
     } catch (error) {
