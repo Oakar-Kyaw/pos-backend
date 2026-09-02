@@ -391,6 +391,7 @@ export class ProductService {
     branchId?: number,
   ) {
     try {
+      console.log('item', dto.items);
       const inventory = await this.prisma.$transaction(async (tx) => {
         let totalAmount = dto.items.reduce(
           (prev, next) => prev + next.price * next.quantity,
@@ -402,7 +403,7 @@ export class ProductService {
             type: dto.type,
             reason: dto.reason,
             note: dto.note,
-            totalAmount: totalAmount,
+            totalAmount,
             userId,
             companyId,
             branchId,
@@ -417,10 +418,32 @@ export class ProductService {
           quantity: item.quantity,
           price: item.price,
           totalAmount: item.totalAmount,
+          costPrice: item.costPrice,
+          avgCostPrice: item.avgCostPrice,
         }));
 
         await tx.inventoryItem.createMany({ data: itemsData });
 
+        //only reduce stock when the inventoryType is Expire, Damage
+        if (dto.type === 'DAMAGED' || dto.type === 'EXPIRED') {
+          // ======================================================
+          // REDUCED STOCK
+          // ======================================================
+          const values = Prisma.join(
+            dto.items.map(
+              (pr) => Prisma.sql`(${pr.productId}::int, ${pr.quantity}::int)`,
+            ),
+            ',',
+          );
+
+          await tx.$executeRaw`
+              UPDATE "Product" AS p
+              SET
+                 "stock" = p."stock" - v.qty
+                FROM (VALUES ${values}) AS v(id, qty)
+              WHERE p.id = v.id
+            `;
+        }
         return created;
       });
 
@@ -513,11 +536,37 @@ export class ProductService {
 
   async deleteInventoryManagement(id: number) {
     console.log('id is ', id);
-    const deleted = await this.prisma.inventoryManagement.update({
-      where: { id },
-      data: {
-        isDeleted: true,
-      },
+    const deleted = await this.prisma.$transaction(async (tx) => {
+      const data = await tx.inventoryManagement.update({
+        where: { id },
+        data: {
+          isDeleted: true,
+        },
+        include: {
+          items: true,
+        },
+      });
+      //only add restock when the inventoryType is Expire, Damage
+      if (data.type === 'DAMAGED' || data.type === 'EXPIRED') {
+        // ======================================================
+        // ADD STOCK
+        // ======================================================
+        const values = Prisma.join(
+          data.items.map(
+            (pr) => Prisma.sql`(${pr.productId}::int, ${pr.quantity}::int)`,
+          ),
+          ',',
+        );
+
+        await tx.$executeRaw`
+              UPDATE "Product" AS p
+              SET
+                 "stock" = p."stock" + v.qty
+                FROM (VALUES ${values}) AS v(id, qty)
+              WHERE p.id = v.id
+            `;
+      }
+      return data;
     });
 
     return {

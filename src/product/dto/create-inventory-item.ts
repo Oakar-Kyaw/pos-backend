@@ -25,10 +25,24 @@ export class CreateInventoryItemDto {
 
   @Expose()
   @IsNotEmpty()
-  @IsInt()
+  @IsNumber()
   @Type(() => Number)
   @Min(0)
   readonly quantity: number;
+
+  @Expose()
+  @IsNotEmpty()
+  @IsNumber()
+  @Type(() => Number)
+  @Min(0)
+  readonly costPrice: number;
+
+  @Expose()
+  @IsNotEmpty()
+  @IsNumber()
+  @Type(() => Number)
+  @Min(0)
+  readonly avgCostPrice: number;
 
   @Expose()
   @IsNotEmpty()

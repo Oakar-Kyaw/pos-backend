@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -17,6 +18,7 @@ import { isAdmin, isManager } from 'src/utils/check-user-role';
 import { ConfigService } from '@nestjs/config';
 import { ClientProxy } from '@nestjs/microservices';
 import { LowStockItems } from 'src/notification-worker/interface/low-stock.interface';
+import { InsufficientStockError } from 'src/utils/errors/stock-error-exception';
 
 @Injectable()
 export class VouchersService {
@@ -37,208 +39,203 @@ export class VouchersService {
     language: string,
     files: Express.Multer.File[],
   ) {
-    try {
-      console.log('dto is: ', dto);
-      // 🔥 calculate totals securely (do NOT trust frontend)
-      const subTotal = dto.items.reduce(
-        (sum, item) => sum + item.price * item.quantity,
-        0,
+    console.log('dto is: ', dto);
+    // 🔥 calculate totals securely (do NOT trust frontend)
+    const subTotal = dto.items.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0,
+    );
+
+    const tax = dto?.tax ?? 0; // example 10% tax
+    const deliveryFee = dto?.deliveryFee ?? 0;
+    const discountAmount = dto.discountAmount ?? 0;
+    const discountPercent = dto.discountPercent ?? 0;
+    const packagingFee = dto.packagingFee ?? 0;
+    const total = subTotal + tax + deliveryFee + packagingFee;
+
+    // percentage-based discount, guarded against 0/negative
+    const percentDiscountAmount =
+      discountPercent > 0 ? total * (discountPercent / 100) : 0;
+
+    let totalWithTaxAndDiscount =
+      total - discountAmount - percentDiscountAmount;
+
+    // clamp so total never goes negative from an overly large discount
+    if (totalWithTaxAndDiscount < 0) {
+      totalWithTaxAndDiscount = 0;
+    }
+
+    const totalPaymentAmount = dto.payments.reduce(
+      (sum, p) => sum + p.amount,
+      0,
+    );
+
+    if (totalPaymentAmount > totalWithTaxAndDiscount) {
+      throw new ForbiddenException(
+        'Total payment amount cannot exceed total voucher amount',
       );
+    }
 
-      const tax = dto?.tax ?? 0; // example 10% tax
-      const deliveryFee = dto?.deliveryFee ?? 0;
-      const discountAmount = dto.discountAmount ?? 0;
-      const discountPercent = dto.discountPercent ?? 0;
-      const packagingFee = dto.packagingFee ?? 0;
-      const total = subTotal + tax + deliveryFee + packagingFee;
+    const debt = totalWithTaxAndDiscount - totalPaymentAmount;
 
-      // percentage-based discount, guarded against 0/negative
-      const percentDiscountAmount =
-        discountPercent > 0 ? total * (discountPercent / 100) : 0;
+    // const voucherCode = await this.generateVoucherCode(companyId, dto.type);
 
-      let totalWithTaxAndDiscount =
-        total - discountAmount - percentDiscountAmount;
+    // Collect items that dropped to/below minStock so we can notify
+    // AFTER the transaction commits (never notify on a rolled-back order)
+    const lowStockItems: LowStockItems[] = [];
 
-      // clamp so total never goes negative from an overly large discount
-      if (totalWithTaxAndDiscount < 0) {
-        totalWithTaxAndDiscount = 0;
-      }
-
-      const totalPaymentAmount = dto.payments.reduce(
-        (sum, p) => sum + p.amount,
-        0,
-      );
-
-      if (totalPaymentAmount > totalWithTaxAndDiscount) {
-        throw new ForbiddenException(
-          'Total payment amount cannot exceed total voucher amount',
-        );
-      }
-
-      const debt = totalWithTaxAndDiscount - totalPaymentAmount;
-
-      // const voucherCode = await this.generateVoucherCode(companyId, dto.type);
-
-      // Collect items that dropped to/below minStock so we can notify
-      // AFTER the transaction commits (never notify on a rolled-back order)
-      const lowStockItems: LowStockItems[] = [];
-
-      const voucher = await this.prisma.$transaction(async (tx) => {
-        const voucherCode = await this.generateVoucherCode({
-          type: 'SALE',
-          companyId,
-          tx,
-        });
-        // ---------------------------------------------------------
-        // Deduct stock FIRST, atomically, before creating anything.
-        // Using RETURNING lets us grab the POST-deduction stock in the
-        // same round trip — no separate read needed, so there's no
-        // window where another transaction could sneak in a change
-        // between "deduct" and "check how much is left".
-        // The WHERE stock >= quantity guard makes this whole statement
-        // atomic: Postgres locks the row for the duration of the
-        // UPDATE, so two concurrent requests can never both succeed
-        // against the same pre-deduction value.
-        // ---------------------------------------------------------
-        for (const item of dto.items) {
-          const rows = await tx.$queryRaw<
-            {
-              id: number;
-              name: string;
-              stock: number;
-              minStock: number;
-              imageUrl: string;
-            }[]
-          >`
+    const voucher = await this.prisma.$transaction(async (tx) => {
+      const voucherCode = await this.generateVoucherCode({
+        type: 'SALE',
+        companyId,
+        tx,
+      });
+      // ---------------------------------------------------------
+      // Deduct stock FIRST, atomically, before creating anything.
+      // Using RETURNING lets us grab the POST-deduction stock in the
+      // same round trip — no separate read needed, so there's no
+      // window where another transaction could sneak in a change
+      // between "deduct" and "check how much is left".
+      // The WHERE stock >= quantity guard makes this whole statement
+      // atomic: Postgres locks the row for the duration of the
+      // UPDATE, so two concurrent requests can never both succeed
+      // against the same pre-deduction value.
+      // ---------------------------------------------------------
+      for (const item of dto.items) {
+        const rows = await tx.$queryRaw<
+          {
+            id: number;
+            name: string;
+            stock: number;
+            minStock: number;
+            imageUrl: string;
+          }[]
+        >`
             UPDATE "Product"
             SET stock = stock - ${item.quantity}
             WHERE id = ${item.productId} AND stock >= ${item.quantity}
             RETURNING id, name, stock, "minStock",  "photoUrl" AS "imageUrl"
           `;
 
-          if (rows.length === 0) {
-            // Either the item doesn't exist, or stock is insufficient
-            // (possibly because a concurrent request just took it).
-            throw new ForbiddenException(
-              `Insufficient stock for item ${item.productId}`,
-            );
-          }
+        if (rows.length === 0) {
+          // Either the item doesn't exist, or stock is insufficient
+          // (possibly because a concurrent request just took it).
 
-          const updated = rows[0];
-          if (updated.stock <= updated.minStock) {
-            lowStockItems.push({
-              ...updated,
-              imageUrl: new URL(updated.imageUrl).toString(),
-              language,
-              userId,
-            });
-          }
+          throw new InsufficientStockError(
+            `Insufficient stock for item ${item.name}`,
+          );
         }
 
-        const createdVoucher = await tx.voucher.create({
-          data: {
-            type: dto.type,
-            voucherCode,
-            note: dto.note,
-            subTotal,
-            tax,
-            deliveryFee,
-            packagingFee: dto.packagingFee ?? 0,
-            totalPaymentAmount: dto.totalPaymentAmount,
-            remainingPaymentAmount: dto.remainingPaymentAmount,
-            total: totalWithTaxAndDiscount,
-            discountAmount,
-            discountPercent,
-            debt,
-            existDebt: debt > 0,
+        const updated = rows[0];
+        if (updated.stock <= updated.minStock) {
+          lowStockItems.push({
+            ...updated,
+            imageUrl: new URL(updated.imageUrl).toString(),
+            language,
             userId,
-            companyId,
-            branchId,
-          },
-        });
+          });
+        }
+      }
 
-        await tx.voucherItem.createMany({
-          data: dto.items.map((item) => ({
-            voucherId: createdVoucher.id,
-            productId: Number(item.productId),
-            itemId: item.itemId,
-            name: item.name,
-            photoUrl: item.photoUrl,
-            quantity: item.quantity,
-            price: item.price,
-          })),
-        });
-
-        await tx.payment.createMany({
-          data: dto.payments.map((payData) => ({
-            voucherId: createdVoucher.id,
-            paymentDataId: payData.paymentDataId,
-            amount: payData.amount,
-            type: payData.type,
-          })),
-        });
-
-        //add amount in balance
-        // const values: Prisma.Sql[] = dto.payments.map(
-        //   (payment) =>
-        //     Prisma.sql`(${payment.paymentDataId}, ${payment.amount})`,
-        // );
-
-        // await tx.$executeRaw`
-        //  UPDATE "PaymentData" As pd
-        //  SET balance = pd.balance + v.amount::numeric
-        //  FROM (
-        //   VALUES ${Prisma.join(values)}
-        //  ) As v(id, amount)
-        //  WHERE pd.id = v.id::integer
-        // `;
-
-        return createdVoucher;
+      const createdVoucher = await tx.voucher.create({
+        data: {
+          type: dto.type,
+          voucherCode,
+          note: dto.note,
+          subTotal,
+          tax,
+          deliveryFee,
+          packagingFee: dto.packagingFee ?? 0,
+          totalPaymentAmount: dto.totalPaymentAmount,
+          remainingPaymentAmount: dto.remainingPaymentAmount,
+          total: totalWithTaxAndDiscount,
+          discountAmount,
+          discountPercent,
+          debt,
+          existDebt: debt > 0,
+          userId,
+          companyId,
+          branchId,
+        },
       });
 
-      // Notify about low stock — only reaches here if the transaction
-      // above actually committed, so we never alert on a failed/rolled
-      // back order. Fire-and-forget via queue so a notification-service
-      // hiccup can't fail the voucher response.
-      console.log('low stock item: ', lowStockItems);
-      //if lowStockItem exists
-      if (lowStockItems.length > 0) {
-        this.notificationClient.emit('send_low_stock_alert_push_notification', {
-          userId,
-          items: lowStockItems,
-          language,
-        });
-      }
+      await tx.voucherItem.createMany({
+        data: dto.items.map((item) => ({
+          voucherId: createdVoucher.id,
+          productId: Number(item.productId),
+          itemId: item.itemId,
+          name: item.name,
+          costPrice: item.costPrice,
+          avgCostPrice: item.avgCostPrice,
+          photoUrl: item.photoUrl,
+          quantity: item.quantity,
+          price: item.price,
+        })),
+      });
 
-      //send photo to background work
-      if (files.length > 0) {
-        console.log('files ', files);
-        await this.voucherPhotoQueue.add(
-          'upload-photos',
-          {
-            voucherId: voucher.id,
-            tempPaths: files.map((f) => f.path),
-          },
-          {
-            attempts: 3,
-            backoff: { type: 'exponential', delay: 3000 },
-            removeOnComplete: true,
-          },
-        );
-      }
+      await tx.payment.createMany({
+        data: dto.payments.map((payData) => ({
+          voucherId: createdVoucher.id,
+          paymentDataId: payData.paymentDataId,
+          amount: payData.amount,
+          type: payData.type,
+        })),
+      });
 
-      return {
-        success: true,
-        message: 'Voucher created successfully',
-        data: voucher,
-      };
-    } catch (error) {
-      console.log('Voucher create error:', error);
-      if (error instanceof ForbiddenException) {
-        throw error; // preserve the specific stock/payment error message
-      }
-      throw new ForbiddenException('Unable to create voucher');
+      //add amount in balance
+      // const values: Prisma.Sql[] = dto.payments.map(
+      //   (payment) =>
+      //     Prisma.sql`(${payment.paymentDataId}, ${payment.amount})`,
+      // );
+
+      // await tx.$executeRaw`
+      //  UPDATE "PaymentData" As pd
+      //  SET balance = pd.balance + v.amount::numeric
+      //  FROM (
+      //   VALUES ${Prisma.join(values)}
+      //  ) As v(id, amount)
+      //  WHERE pd.id = v.id::integer
+      // `;
+
+      return createdVoucher;
+    });
+
+    // Notify about low stock — only reaches here if the transaction
+    // above actually committed, so we never alert on a failed/rolled
+    // back order. Fire-and-forget via queue so a notification-service
+    // hiccup can't fail the voucher response.
+    console.log('low stock item: ', lowStockItems);
+    //if lowStockItem exists
+    if (lowStockItems.length > 0) {
+      this.notificationClient.emit('send_low_stock_alert_push_notification', {
+        userId,
+        items: lowStockItems,
+        language,
+      });
     }
+
+    //send photo to background work
+    if (files.length > 0) {
+      console.log('files ', files);
+      await this.voucherPhotoQueue.add(
+        'upload-photos',
+        {
+          voucherId: voucher.id,
+          tempPaths: files.map((f) => f.path),
+        },
+        {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 3000 },
+          removeOnComplete: true,
+        },
+      );
+    }
+
+    return {
+      success: true,
+      message: 'Voucher created successfully',
+      data: voucher,
+    };
   }
 
   // ================= FIND ALL =================
