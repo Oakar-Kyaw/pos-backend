@@ -16,7 +16,10 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FileUpload } from 'src/utils/file-upload';
-import { CreateInventoryDto } from './dto/create-inventory-item';
+import {
+  CreateInventoryDto,
+  UpdateInventoryDto,
+} from './dto/create-inventory-item';
 import { isAdmin, isManager } from 'src/utils/check-user-role';
 
 @Controller('api/v1/products')
@@ -124,6 +127,22 @@ export class ProductController {
     const { id: userId, companyId: companyId } = req.user;
     return this.productService.createLostAndExpireItems(
       createInventoryDto,
+      userId,
+      companyId,
+    );
+  }
+
+  @Patch('expire-items/:id')
+  async updateLostAndExpireItem(
+    @Req() req,
+    @Param() @Param('id') id: string,
+    @Body() update: UpdateInventoryDto,
+  ) {
+    //console.log('req.user ', req.user);
+    const { id: userId, companyId: companyId } = req.user;
+    return this.productService.updateLostAndExpireItems(
+      Number(id),
+      update,
       userId,
       companyId,
     );

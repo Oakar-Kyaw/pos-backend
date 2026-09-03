@@ -9,7 +9,10 @@ import { PrismaService } from 'prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { CreateInventoryDto } from './dto/create-inventory-item';
+import {
+  CreateInventoryDto,
+  UpdateInventoryDto,
+} from './dto/create-inventory-item';
 import type { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from 'src/utils/redis/redis.service';
@@ -455,6 +458,154 @@ export class ProductService {
     } catch (error) {
       console.error('Inventory loss creation error:', error);
       throw new ForbiddenException('Unable to create inventory loss record');
+    }
+  }
+
+  async updateLostAndExpireItems(
+    id: number,
+    dto: UpdateInventoryDto,
+    userId: number,
+    companyId: number,
+    branchId?: number,
+  ) {
+    try {
+      console.log('item', dto);
+      const existInventory = await this.prisma.inventoryManagement.findUnique({
+        where: {
+          id,
+        },
+        include: {
+          items: true,
+        },
+      });
+
+      if (!existInventory)
+        throw new NotFoundException("Inventory Item doesn't exist");
+
+      const inventory = await this.prisma.$transaction(async (tx) => {
+        const items = dto.items ?? [];
+
+        const totalAmount = items.reduce(
+          (prev, next) => prev + next.price * next.quantity,
+          0,
+        );
+
+        // ======================================================
+        // RESTORE OLD STOCK
+        // ======================================================
+        // If the old inventory type was DAMAGED or EXPIRED,
+        // restore the previously deducted stock before applying
+        // the new inventory items.
+        if (
+          existInventory.type === 'DAMAGED' ||
+          existInventory.type === 'EXPIRED'
+        ) {
+          if (existInventory.items.length > 0) {
+            const values = Prisma.join(
+              existInventory.items.map(
+                (item) =>
+                  Prisma.sql`(${item.productId}::int, ${item.quantity}::int)`,
+              ),
+              ',',
+            );
+
+            await tx.$executeRaw`
+            UPDATE "Product" AS p
+            SET
+              "stock" = p."stock" + v.qty
+            FROM (VALUES ${values}) AS v(id, qty)
+            WHERE p.id = v.id
+          `;
+          }
+        }
+
+        // ======================================================
+        // UPDATE MAIN INVENTORY RECORD
+        // ======================================================
+        const update = await tx.inventoryManagement.update({
+          where: {
+            id,
+          },
+          data: {
+            type: dto.type,
+            reason: dto.reason,
+            note: dto.note,
+            totalAmount,
+            userId,
+            companyId,
+            branchId,
+          },
+        });
+
+        // ======================================================
+        // DELETE OLD ITEMS
+        // ======================================================
+        await tx.inventoryItem.deleteMany({
+          where: {
+            inventoryId: id,
+          },
+        });
+
+        // ======================================================
+        // CREATE NEW ITEMS
+        // ======================================================
+        if (items.length > 0) {
+          const itemsData = items.map((item) => ({
+            inventoryId: id,
+            productId: item.productId,
+            photoUrl: item.photoUrl,
+            quantity: item.quantity,
+            price: item.price,
+            totalAmount: item.totalAmount,
+            costPrice: item.costPrice,
+            avgCostPrice: item.avgCostPrice,
+          }));
+
+          await tx.inventoryItem.createMany({
+            data: itemsData,
+          });
+        }
+
+        // ======================================================
+        // REDUCE STOCK FOR NEW DAMAGED / EXPIRED ITEMS
+        // ======================================================
+        if (
+          (dto.type === 'DAMAGED' || dto.type === 'EXPIRED') &&
+          items.length > 0
+        ) {
+          const values = Prisma.join(
+            items.map(
+              (item) =>
+                Prisma.sql`(${item.productId}::int, ${item.quantity}::int)`,
+            ),
+            ',',
+          );
+
+          await tx.$executeRaw`
+          UPDATE "Product" AS p
+          SET
+            "stock" = p."stock" - v.qty
+          FROM (VALUES ${values}) AS v(id, qty)
+          WHERE p.id = v.id
+        `;
+        }
+
+        return update;
+      });
+
+      return {
+        success: true,
+        message: 'Inventory record updated successfully',
+        data: inventory,
+      };
+    } catch (error) {
+      console.error('Inventory loss update error:', error);
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new ForbiddenException('Unable to update inventory loss record');
     }
   }
 

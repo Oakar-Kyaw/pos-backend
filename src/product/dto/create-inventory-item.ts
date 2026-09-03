@@ -1,3 +1,4 @@
+import { PartialType } from '@nestjs/mapped-types';
 import { InventoryType } from '@prisma/client';
 import { Expose, Transform, Type } from 'class-transformer';
 import {
@@ -90,3 +91,5 @@ export class CreateInventoryDto {
   @Type(() => CreateInventoryItemDto)
   readonly items: CreateInventoryItemDto[];
 }
+
+export class UpdateInventoryDto extends PartialType(CreateInventoryDto) {}
