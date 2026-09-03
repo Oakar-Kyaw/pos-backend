@@ -609,6 +609,59 @@ export class ProductService {
     }
   }
 
+  async updatePurchaseConfirm(
+    id: number,
+    userId: number,
+    companyId: number,
+    branchId?: number,
+  ) {
+    try {
+      const existInventory = await this.prisma.inventoryManagement.findUnique({
+        where: {
+          id,
+        },
+        include: {
+          items: true,
+        },
+      });
+
+      if (!existInventory)
+        throw new NotFoundException("Inventory Item doesn't exist");
+
+      const inventory = await this.prisma.$transaction(async (tx) => {
+        // ======================================================
+        // UPDATE MAIN INVENTORY RECORD
+        // ======================================================
+        const update = await tx.inventoryManagement.update({
+          where: {
+            id,
+          },
+          data: {
+            confirmed: true,
+          },
+        });
+
+        return update;
+      });
+
+      return {
+        success: true,
+        message: 'Request inventory item record confirmed successfully',
+        data: inventory,
+      };
+    } catch (error) {
+      console.error('Inventory loss update error:', error);
+
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new ForbiddenException(
+        'Unable to confirm requested inventory record',
+      );
+    }
+  }
+
   async findAllInventoryManagement(
     userId: number,
     companyId: number,
