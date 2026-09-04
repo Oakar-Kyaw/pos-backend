@@ -149,8 +149,8 @@ export class ProductController {
   }
 
   @Patch('expire-items/:id/confirm')
-  async updatePurchaseConfirm(@Req() req, @Param() @Param('id') id: string) {
-    //console.log('req.user ', req.user);
+  async updatePurchaseConfirm(@Req() req, @Param('id') id: number) {
+    console.log('req.user ', id);
     const { id: userId, companyId: companyId } = req.user;
     return this.productService.updatePurchaseConfirm(
       Number(id),
