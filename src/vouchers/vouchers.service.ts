@@ -137,6 +137,18 @@ export class VouchersService {
         }
       }
 
+      //if customer come from frontend
+      if (dto.customer) {
+        const createdCustomer = await tx.customer.create({
+          data: {
+            name: dto.customer.name,
+            phone: dto.customer.phone,
+            companyId,
+          },
+        });
+        dto.customerId = createdCustomer.id;
+      }
+
       const createdVoucher = await tx.voucher.create({
         data: {
           type: dto.type,
@@ -156,6 +168,7 @@ export class VouchersService {
           userId,
           companyId,
           branchId,
+          ...(dto.customerId && { customerId: dto.customerId }),
         },
       });
 

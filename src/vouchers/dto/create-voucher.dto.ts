@@ -12,6 +12,7 @@ import { CreateVoucherItemDto } from './create-voucher-item.dto';
 import { VoucherType } from '@prisma/client';
 import { CreatePaymentDto } from 'src/payment/dto/create-payment.dto';
 import { VoucherPaymentDto } from './payment-voucher.dto';
+import { VoucherCustomerDto } from './voucher-customer.dto';
 
 export class CreateVoucherDto {
   // ===== Basic Info =====
@@ -123,4 +124,25 @@ export class CreateVoucherDto {
     return value;
   })
   readonly payments: VoucherPaymentDto[];
+
+  @Expose()
+  @IsOptional()
+  @Type(() => VoucherCustomerDto)
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        //  console.log('value is ', value, typeof value);
+        return JSON.parse(value);
+      } catch (e) {
+        return [];
+      }
+    }
+    return value;
+  })
+  readonly customer: VoucherCustomerDto;
+
+  @Expose()
+  @IsOptional()
+  @Type(() => Number)
+  customerId: number;
 }

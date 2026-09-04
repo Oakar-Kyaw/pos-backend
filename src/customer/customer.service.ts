@@ -186,6 +186,12 @@ export class CustomerService {
               mode: 'insensitive',
             },
           },
+          {
+            phone: {
+              contains: search.trim(),
+              mode: 'insensitive',
+            },
+          },
         ],
       }),
     };
@@ -211,7 +217,7 @@ export class CustomerService {
         where,
       }),
     ]);
-
+    console.log('data for customer', data);
     return {
       success: true,
       message: 'Customer by filter fetched successfully',
