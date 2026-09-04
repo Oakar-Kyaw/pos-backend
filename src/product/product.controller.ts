@@ -135,7 +135,7 @@ export class ProductController {
   @Patch('expire-items/:id')
   async updateLostAndExpireItem(
     @Req() req,
-    @Param() @Param('id') id: string,
+    @Param('id') id: string,
     @Body() update: UpdateInventoryDto,
   ) {
     //console.log('req.user ', req.user);
