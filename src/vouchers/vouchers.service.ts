@@ -373,6 +373,7 @@ export class VouchersService {
               paymentData: true,
             },
           },
+          Customer: true,
         },
         orderBy: { id: 'desc' },
         skip,
