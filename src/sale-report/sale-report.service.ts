@@ -7,9 +7,8 @@ import { CreateSaleReportDto } from './dto/create-sale-report.dto';
 import { UpdateSaleReportDto } from './dto/update-sale-report.dto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
-import { connect } from 'http2';
-import { messaging } from 'firebase-admin';
 import { Decimal } from '@prisma/client/runtime/client';
+import { fromZonedTime } from 'date-fns-tz';
 
 @Injectable()
 export class SaleReportService {
@@ -180,33 +179,65 @@ export class SaleReportService {
     return report;
   }
 
-  async getOpeningAndClosing(date: string) {
-    // 1️⃣ Parse date as UTC
-    const day = new Date(date);
+  async getOpeningAndClosing(
+    date: string,
+    userId: number,
+    companyId: number,
+    branchId?: number,
+  ) {
+    type ExpenseSumRow = {
+      totalGeneralExpense: number;
+      totalPurchase: number;
+    };
+    console.log('=== DEBUG: raw date param ===', JSON.stringify(date));
 
-    // 2️⃣ Start of day (UTC)
-    const startOfDay = new Date(
-      Date.UTC(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0, 0),
-    );
+    if (!date) {
+      throw new BadRequestException('date is required');
+    }
+    const dateOnly = date.slice(0, 10);
+    const timezone = 'Asia/Yangon';
+    // date string ('2026-09-04') ကို local timezone start/end of day → UTC ပြောင်းမယ်
+    const startOfDay = fromZonedTime(`${dateOnly}T00:00:00.000`, timezone);
+    const endOfDay = fromZonedTime(`${dateOnly}T23:59:59.999`, timezone);
 
-    // 3️⃣ End of day (UTC)
-    const endOfDay = new Date(
-      Date.UTC(
-        day.getFullYear(),
-        day.getMonth(),
-        day.getDate(),
-        23,
-        59,
-        59,
-        999,
-      ),
-    );
+    console.log('startOfDay', startOfDay);
+    console.log('endOfDay', endOfDay);
+    const { totalGeneralExpense, totalPurchase } =
+      await this.prisma.$transaction(async (tx) => {
+        const branchFilter = branchId
+          ? Prisma.sql`AND "branchId" = ${branchId}`
+          : Prisma.empty;
 
-    console.log('startOfDay', startOfDay.toISOString());
-    console.log('endOfDay', endOfDay.toISOString());
+        const result: ExpenseSumRow[] =
+          await tx.$queryRaw` SELECT (SELECT COALESCE(SUM(amount), 0)
+     FROM "GeneralExpense"
+     WHERE "isDeleted" = false
+       AND "companyId" = ${companyId}
+       ${branchFilter}
+       AND "date" >= ${startOfDay}
+       AND "date" <= ${endOfDay}) AS "totalGeneralExpense",
+
+    (SELECT COALESCE(SUM("totalAmount"), 0)
+     FROM "Purchase"
+     WHERE "isDeleted" = false
+       AND "companyId" = ${companyId}
+       ${branchFilter}
+       AND "orderDate" >= ${startOfDay}
+       AND "orderDate" <= ${endOfDay}) AS "totalPurchase"
+`;
+
+        console.log('result is ', result);
+
+        return {
+          totalGeneralExpense: Number(result[0].totalGeneralExpense ?? 0),
+          totalPurchase: Number(result[0].totalPurchase ?? 0),
+        };
+      });
 
     const data = await this.prisma.saleReport.findMany({
       where: {
+        branchId,
+        companyId,
         date: { gte: startOfDay, lte: endOfDay },
       },
       orderBy: { date: 'asc' },
@@ -234,6 +265,8 @@ export class SaleReportService {
       data: {
         openingAmount,
         closingAmount,
+        totalGeneralExpense,
+        totalPurchase,
         isClosed,
       },
     };

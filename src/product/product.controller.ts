@@ -14,7 +14,7 @@ import {
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { FileUpload } from 'src/utils/file-upload';
 import {
   CreateInventoryDto,
@@ -189,4 +189,8 @@ export class ProductController {
   deleteExpireRequest(@Param('id') id: number) {
     return this.productService.deleteInventoryManagement(id);
   }
+
+  @Post('excel')
+  @UseInterceptors(FileInterceptor('file'))
+  createProductByExcel() {}
 }

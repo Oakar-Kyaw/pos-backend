@@ -32,7 +32,7 @@ export class IncomeService {
         999,
       ),
     );
-    console.log('now', now, endOfDay);
+    // console.log('now', now, endOfDay);
     const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startYear = new Date(now.getFullYear(), 0, 1);
     const endYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
@@ -136,6 +136,7 @@ export class IncomeService {
       SELECT
         COALESCE(SUM("total"), 0) AS "total",
         COALESCE(SUM("deliveryFee"), 0) AS "deliveryFee",
+        COALESCE(SUM("packagingFee"), 0 ) AS "packagingFee",
         COALESCE(SUM("tax"), 0) AS "tax",
         COALESCE(SUM("subTotal"), 0) AS "subTotal"
         
@@ -191,7 +192,7 @@ export class IncomeService {
     startDate?: Date,
     endDate?: Date,
   ) {
-    console.log('sdate is ', startDate, endDate, companyId);
+    // console.log('sdate is ', startDate, endDate, companyId);
     const result: {
       itemId: number;
       name: string;

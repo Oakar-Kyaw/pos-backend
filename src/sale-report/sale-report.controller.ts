@@ -38,7 +38,7 @@ export class SaleReportController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    const { userId, companyId, branchId } = req.user;
+    const { id: userId, companyId, branchId } = req.user;
 
     return this.saleReportService.findAll(
       userId,
@@ -57,8 +57,14 @@ export class SaleReportController {
   }
 
   @Get('opening/amount')
-  getOpeningAndClosing(@Query('date') date: string) {
-    return this.saleReportService.getOpeningAndClosing(date);
+  getOpeningAndClosing(@Req() req, @Query('date') date: string) {
+    const { id: userId, companyId, branchId } = req.user;
+    return this.saleReportService.getOpeningAndClosing(
+      date,
+      userId,
+      companyId,
+      branchId,
+    );
   }
 
   @Patch(':id')
