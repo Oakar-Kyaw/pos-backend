@@ -333,6 +333,7 @@ export class VouchersService {
               paymentData: true,
             },
           },
+          Customer: true,
         },
         orderBy: { id: 'desc' },
       });
@@ -413,6 +414,7 @@ export class VouchersService {
         },
         company: true,
         paymentPhotos: true,
+        Customer: true,
       },
     });
 
