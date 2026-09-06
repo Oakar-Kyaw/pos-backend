@@ -125,13 +125,13 @@ export class ProductService {
       limit,
     });
     const cachedData = await this.redis.get(redisKey);
+    console.log('redis key', redisKey);
     // If search → return all matches (no pagination)
     if (search) {
       const products = await this.prisma.product.findMany({
         where,
         include: { category: true },
         orderBy: { id: 'desc' },
-      
       });
 
       console.log('product search is ', products);
@@ -201,7 +201,7 @@ export class ProductService {
       //   this.logger.log('Key does not exist in Redis.');
       // }
     }
-    // console.log('product are ', products);
+    console.log('product are ', skip, limit);
     return {
       success: true,
       message: 'Products fetched successfully',
@@ -906,14 +906,45 @@ export class ProductService {
 
     const current = await this.redis.getVersion(redisProductCacheKey);
     console.log(`🔢 လက်ရှိ version: ${current}`);
-    // Output: 🔢 လက်ရှိ version: 1
 
-    const next = await this.redis.increaseVersionNumber(redisProductCacheKey);
-    console.log(`⬆️ Version ကို ${current} → ${next} tick up လုပ်လိုက်ပြီ`);
-    // Output: ⬆️ Version ကို 1 → 2 tick up လုပ်လိုက်ပြီ
+    await this.redis.increaseVersionNumber(redisProductCacheKey);
 
-    console.log(
-      '👻 old key "product:11:v1:0:20" ကတော့ Redis ထဲမှာ ရုပ်ပျောက်တစ်ခုလို ကျန်နေတယ် (orphan) — ဘယ်သူမှ ရှာမတွေ့တော့ဘူး',
-    );
+    const next = current + 1;
+
+    // Get the actual ioredis client
+    const redisClient = this.redis.getClient();
+
+    // Delete all:
+    // product:${companyId}:page-index:*
+    // const pattern = `product:${companyId}:page-index:*`;
+    const pattern = `product:*`;
+
+    let cursor = '0';
+    let deletedCount = 0;
+
+    do {
+      const [nextCursor, keys] = await redisClient.scan(
+        cursor,
+        'MATCH',
+        pattern,
+        'COUNT',
+        100,
+      );
+
+      cursor = nextCursor;
+
+      if (keys.length > 0) {
+        console.log('key ', keys);
+        await redisClient.del(...keys);
+        deletedCount += keys.length;
+      }
+    } while (cursor !== '0');
+
+    // Delete version key
+    await this.redis.del(redisProductCacheKey);
+
+    console.log(`🗑️ Deleted ${deletedCount} page-index keys`);
+
+    console.log(`⬆️ Version ${current} → ${next} tick up လုပ်လိုက်ပြီ`);
   }
 }

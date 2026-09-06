@@ -37,7 +37,8 @@ export class ProductController {
   constructor(
     private readonly productService: ProductService,
     private readonly uploader: FileUpload,
-    @Inject('WORKER_SERVICE') private readonly notificationClient: ClientProxy,
+    @Inject('PRODUCT_WORKER_SERVICE')
+    private readonly productWorkerClient: ClientProxy,
     private readonly socketGateway: SocketGatewaysService,
   ) {}
 
@@ -215,12 +216,14 @@ export class ProductController {
       folderName: 'excel',
     });
 
-    this.notificationClient
+    this.productWorkerClient
       .emit('product_excel', { excelUrl, userId, companyId })
       .subscribe({
         next: () => console.log('✅ EMIT SUCCESS'),
         error: (err) => console.error('❌ EMIT ERROR:', err),
       });
+
+    await this.productService.invalidateProductCache(companyId);
 
     return {
       success: true,

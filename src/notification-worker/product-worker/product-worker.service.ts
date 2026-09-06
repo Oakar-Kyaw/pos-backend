@@ -10,7 +10,8 @@ export class ProductWorkerService {
   // private r2: S3Client;
   constructor(
     private readonly prisma: PrismaService,
-    @Inject('WORKER_SERVICE') private readonly notificationClient: ClientProxy,
+    @Inject('PRODUCT_WORKER_SERVICE')
+    private readonly productWorkerClient: ClientProxy,
   ) {
     // this.r2 = new S3Client({
     //   region: 'auto',
@@ -91,12 +92,13 @@ export class ProductWorkerService {
         console.log(`Progress: ${processed}/${rows.length} (${percent}%)`);
 
         // Send realtime progress
-        this.notificationClient
+        this.productWorkerClient
           .emit('product_progress', {
             percent,
             processed,
             total: rows.length,
             userId,
+            companyId,
           })
           .subscribe({
             next: () => console.log('✅ EMIT SUCCESS'),

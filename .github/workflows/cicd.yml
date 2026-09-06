@@ -50,10 +50,20 @@ jobs:
             -f src/notification-worker/Dockerfile \
             -t ${{ secrets.DOCKER_USERNAME }}/pos-notification-worker:latest \
             .
+       - name: Build Docker image for product worker
+        run: |
+          docker build \
+            -f src/notification-worker/Dockerfile \
+            -t ${{ secrets.DOCKER_USERNAME }}/pos-product-worker:latest \
+            .
 
       - name: Push Docker image for notification worker
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/pos-notification-worker:latest
+      
+      - name: Push Docker image for product worker
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/pos-product-worker:latest
 
       # Sync docker-compose.yml to the server so it never drifts from the repo
       - name: Copy docker-compose.yaml to server

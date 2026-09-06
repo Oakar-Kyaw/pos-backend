@@ -15,6 +15,21 @@ services:
   notification-worker:
     image: ${DOCKER_USERNAME}/pos-notification-worker:latest
     restart: unless-stopped
+    environment:
+      WORKER_TYPE: notification
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  product-worker:
+    image: ${DOCKER_USERNAME}/pos-product-worker:latest
+    restart: unless-stopped
+    environment:
+      WORKER_TYPE: product
     env_file:
       - .env
     depends_on:
