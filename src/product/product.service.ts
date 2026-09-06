@@ -131,8 +131,7 @@ export class ProductService {
         where,
         include: { category: true },
         orderBy: { id: 'desc' },
-        skip,
-        take: limit,
+      
       });
 
       console.log('product search is ', products);

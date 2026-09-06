@@ -5,7 +5,7 @@ import { ConfigModule } from '@nestjs/config';
 import { NotificationWorkerModule } from './notification-worker.module';
 
 async function bootstrap() {
-  console.log('RABBITMQ_URL:', process.env.RABBITMQ_URL);
+  // console.log('RABBITMQ_URL:', process.env.RABBITMQ_URL);
   const app = await NestFactory.createMicroservice<MicroserviceOptions>(
     NotificationWorkerModule,
     {
@@ -19,6 +19,7 @@ async function bootstrap() {
       },
     },
   );
+  // console.log('RABBITMQ_URL:', process.env.RABBITMQ_URL);
   await app.listen();
   console.log('🐰 Worker is listening for jobs...');
 }

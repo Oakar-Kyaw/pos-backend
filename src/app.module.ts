@@ -30,6 +30,7 @@ import { RabbitMQModule } from './rabbitmq/rabbitmq.module';
 import { PurchaseModule } from './purchase/purchase.module';
 import { SupplierModule } from './supplier/supplier.module';
 import { CustomerModule } from './customer/customer.module';
+import { SocketGatewaysModule } from './socket-gateways/socket-gateways.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -74,6 +75,7 @@ import { CustomerModule } from './customer/customer.module';
     PurchaseModule,
     SupplierModule,
     CustomerModule,
+    SocketGatewaysModule,
   ],
   controllers: [AppController],
   providers: [AppService],

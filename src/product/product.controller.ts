@@ -10,6 +10,7 @@ import {
   UseInterceptors,
   UploadedFile,
   Query,
+  Inject,
 } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -21,12 +22,23 @@ import {
   UpdateInventoryDto,
 } from './dto/create-inventory-item';
 import { isAdmin, isManager } from 'src/utils/check-user-role';
+import { FileNotFoundException } from 'src/utils/errors/file-not-found-exception';
+import {
+  ClientProxy,
+  Ctx,
+  EventPattern,
+  Payload,
+  RmqContext,
+} from '@nestjs/microservices';
+import { SocketGatewaysService } from 'src/socket-gateways/socket.gateway';
 
 @Controller('api/v1/products')
 export class ProductController {
   constructor(
     private readonly productService: ProductService,
     private readonly uploader: FileUpload,
+    @Inject('WORKER_SERVICE') private readonly notificationClient: ClientProxy,
+    private readonly socketGateway: SocketGatewaysService,
   ) {}
 
   @Post()
@@ -192,5 +204,43 @@ export class ProductController {
 
   @Post('excel')
   @UseInterceptors(FileInterceptor('file'))
-  createProductByExcel() {}
+  async createProductByExcel(
+    @Req() req,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const { id: userId, companyId: companyId } = req.user;
+    if (!file) throw new FileNotFoundException('File not found');
+
+    const excelUrl = await this.uploader.uploadExcel(file, {
+      folderName: 'excel',
+    });
+
+    this.notificationClient
+      .emit('product_excel', { excelUrl, userId, companyId })
+      .subscribe({
+        next: () => console.log('✅ EMIT SUCCESS'),
+        error: (err) => console.error('❌ EMIT ERROR:', err),
+      });
+
+    return {
+      success: true,
+      message: 'Excel File uploaded',
+    };
+    // return this.productService.uploadProductWithExcel();
+  }
+
+  @EventPattern('product_progress')
+  async sendProductExcelProgress(@Payload() data: any) {
+    console.log('data ', data);
+
+    try {
+      this.socketGateway.emitProgress(data.userId, {
+        percent: data.percent,
+        processed: data.processed,
+        total: data.total,
+      });
+    } catch (error) {
+      console.error('Failed to process product progress:', error);
+    }
+  }
 }
