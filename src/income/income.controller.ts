@@ -52,4 +52,20 @@ export class IncomeController {
   remove(@Param('id') id: string) {
     return this.incomeService.remove(+id);
   }
+
+  @Get('profit-loss')
+  profitandloss(
+    @Req() req,
+    @Query('filterBranchId') filterBranchId: number,
+    @Query('date') date?: string,
+  ) {
+    const { id: userId, companyId, branchId } = req.user;
+    console.log('filer', filterBranchId);
+    return this.incomeService.findAll(
+      userId,
+      companyId,
+      filterBranchId ? filterBranchId : branchId,
+      date,
+    );
+  }
 }
