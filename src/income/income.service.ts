@@ -168,16 +168,349 @@ export class IncomeService {
         999,
       ),
     );
-    // console.log('now', now, endOfDay);
+    console.log('now', now, endOfDay);
     const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const thisEndMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const startYear = new Date(now.getFullYear(), 0, 1);
     const endYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
     // console.log(startYear, endYear, thisMonth);
+    const todayProfitAndLoss = await this.calculateProfitAndLoss(
+      now,
+      endOfDay,
+      companyId,
+      branchId,
+    );
+
+    const monthlyProfitAndLoss = await this.calculateProfitAndLoss(
+      thisMonth,
+      thisEndMonth,
+      companyId,
+      branchId,
+    );
+
+    const yearlyProfitAndLoss = await this.calculateProfitAndLoss(
+      startYear,
+      endYear,
+      companyId,
+      branchId,
+    );
+
+    const todayItemProfitAndLoss = await this.getItemProfitAndLoss(
+      now,
+      endOfDay,
+      companyId,
+      branchId,
+    );
+
+    const monthlyItemProfitAndLoss = await this.getItemProfitAndLoss(
+      thisMonth,
+      thisEndMonth,
+      companyId,
+      branchId,
+    );
+
+    const yearlyItemProfitAndLoss = await this.getItemProfitAndLoss(
+      startYear,
+      endYear,
+      companyId,
+      branchId,
+    );
+
     return {
       success: true,
       message: 'Get all Profit and Loss',
+      todayProfitAndLoss,
+      monthlyProfitAndLoss,
+      yearlyProfitAndLoss,
+      todayItemProfitAndLoss,
+      monthlyItemProfitAndLoss,
+      yearlyItemProfitAndLoss,
     };
+  }
+
+  async calculateProfitAndLoss(
+    startOfDay: Date,
+    endOfDay: Date,
+    companyId: number,
+    branchId: number,
+  ) {
+    const voucherBranch = branchId
+      ? Prisma.sql`AND v."branchId" = ${branchId}`
+      : Prisma.empty;
+    const refundBranch = branchId
+      ? Prisma.sql`AND rf."branchId" = ${branchId}`
+      : Prisma.empty;
+    const expenseBranch = branchId
+      ? Prisma.sql`AND ge."branchId" = ${branchId}`
+      : Prisma.empty;
+    const inventoryBranch = branchId
+      ? Prisma.sql`AND im."branchId" = ${branchId}`
+      : Prisma.empty;
+
+    // Step 1-2: Gross revenue & COGS from sold items
+    const salesSql = Prisma.sql`COALESCE((
+    SELECT SUM(vi."price" * vi."quantity")
+    FROM "VoucherItem" vi
+    INNER JOIN "Voucher" v ON vi."voucherId" = v."id"
+    WHERE v."companyId" = ${companyId}
+      AND v."isDeleted" = FALSE
+      AND vi."isDeleted" = FALSE
+      AND v."createdAt" >= ${startOfDay}
+      AND v."createdAt" < ${endOfDay}
+      ${voucherBranch}
+  ), 0)`;
+
+    const cogsSql = Prisma.sql`COALESCE((
+    SELECT SUM(vi."avgCostPrice" * vi."quantity")
+    FROM "VoucherItem" vi
+    INNER JOIN "Voucher" v ON vi."voucherId" = v."id"
+    WHERE v."companyId" = ${companyId}
+      AND v."isDeleted" = FALSE
+      AND vi."isDeleted" = FALSE
+      AND v."createdAt" >= ${startOfDay}
+      AND v."createdAt" < ${endOfDay}
+      ${voucherBranch}
+  ), 0)`;
+
+    // Refund reversal
+    const refundedRevenueSql = Prisma.sql`COALESCE((
+    SELECT SUM(ri."price" * ri."quantity")
+    FROM "RefundItem" ri
+    INNER JOIN "Refund" rf ON ri."refundId" = rf."id"
+    WHERE rf."companyId" = ${companyId}
+      AND rf."isDeleted" = FALSE
+      AND rf."date" >= ${startOfDay}
+      AND rf."date" < ${endOfDay}
+      ${refundBranch}
+  ), 0)`;
+
+    const refundedCogsSql = Prisma.sql`COALESCE((
+    SELECT SUM(ri."avgCostPrice" * ri."quantity")
+    FROM "RefundItem" ri
+    INNER JOIN "Refund" rf ON ri."refundId" = rf."id"
+    WHERE rf."companyId" = ${companyId}
+      AND rf."isDeleted" = FALSE
+      AND rf."date" >= ${startOfDay}
+      AND rf."date" < ${endOfDay}
+      ${refundBranch}
+  ), 0)`;
+
+    // Operating expense
+    const expenseSql = Prisma.sql`COALESCE((
+    SELECT SUM(ge."amount")
+    FROM "GeneralExpense" ge
+    WHERE ge."companyId" = ${companyId}
+      AND ge."isDeleted" = FALSE
+      AND ge."date" >= ${startOfDay}
+      AND ge."date" < ${endOfDay}
+      ${expenseBranch}
+  ), 0)`;
+
+    // Wastage / damaged
+    const wastageSql = Prisma.sql`COALESCE((
+    SELECT SUM(im."totalAmount")
+    FROM "InventoryManagement" im
+    WHERE im."companyId" = ${companyId}
+      AND im."isDeleted" = FALSE
+      AND im."type" IN ('EXPIRED', 'DAMAGED')
+      AND im."createdAt" >= ${startOfDay}
+      AND im."createdAt" < ${endOfDay}
+      ${inventoryBranch}
+  ), 0)`;
+
+    const result = await this.prisma.$queryRaw<
+      {
+        grossRevenue: number;
+        cogs: number;
+        refundRevenue: number;
+        refundCogs: number;
+        netSales: number;
+        netCogs: number;
+        grossProfit: number;
+        operatingExpense: number;
+        wastageAmount: number;
+        netProfit: number;
+        grossMarginPercent: number;
+        netMarginPercent: number;
+      }[]
+    >(
+      Prisma.sql`
+    SELECT
+      ${salesSql} AS "grossRevenue",
+      ${cogsSql} AS "cogs",
+      ${refundedRevenueSql} AS "refundRevenue",
+      ${refundedCogsSql} AS "refundCogs",
+
+      (${salesSql} - ${refundedRevenueSql}) AS "netSales",
+      (${cogsSql} - ${refundedCogsSql}) AS "netCogs",
+
+      ((${salesSql} - ${refundedRevenueSql}) - (${cogsSql} - ${refundedCogsSql})) AS "grossProfit",
+
+      ${expenseSql} AS "operatingExpense",
+      ${wastageSql} AS "wastageAmount",
+
+      (((${salesSql} - ${refundedRevenueSql}) - (${cogsSql} - ${refundedCogsSql}))
+          - ${expenseSql} - ${wastageSql}) AS "netProfit",
+
+      -- Gross margin: COGS — product pricing 
+      CASE
+        WHEN (${salesSql} - ${refundedRevenueSql}) = 0 THEN 0
+        ELSE (
+          ((${salesSql} - ${refundedRevenueSql}) - (${cogsSql} - ${refundedCogsSql}))
+          / NULLIF((${salesSql} - ${refundedRevenueSql}), 0)
+        ) * 100
+      END AS "grossMarginPercent",
+
+      -- Net margin: expense/wastage  — business overall health 
+      CASE
+        WHEN (${salesSql} - ${refundedRevenueSql}) = 0 THEN 0
+        ELSE (
+          (((${salesSql} - ${refundedRevenueSql}) - (${cogsSql} - ${refundedCogsSql}))
+            - ${expenseSql} - ${wastageSql})
+          / NULLIF((${salesSql} - ${refundedRevenueSql}), 0)
+        ) * 100
+      END AS "netMarginPercent"
+    `,
+    );
+
+    return result[0];
+  }
+
+  async getItemProfitAndLoss(
+    startOfDay: Date,
+    endOfDay: Date,
+    companyId: number,
+    branchId: number,
+  ) {
+    const voucherBranch = branchId
+      ? Prisma.sql`AND v."branchId" = ${branchId}`
+      : Prisma.empty;
+    const refundBranch = branchId
+      ? Prisma.sql`AND rf."branchId" = ${branchId}`
+      : Prisma.empty;
+    const wastageBranch = branchId
+      ? Prisma.sql`AND im."branchId" = ${branchId}`
+      : Prisma.empty;
+
+    const result = await this.prisma.$queryRaw<
+      {
+        productId: number;
+        name: string;
+        photoUrl: string;
+        soldQty: bigint;
+        revenue: number;
+        cogs: number;
+        refundedRevenue: number;
+        refundedCogs: number;
+        wastageAmount: number;
+        netSales: number;
+        netCogs: number;
+        grossProfit: number;
+        netProfit: number;
+        grossMarginPercent: number;
+        netMarginPercent: number;
+      }[]
+    >(
+      Prisma.sql`
+    WITH sales AS (
+      SELECT
+        vi."productId",
+        MAX(vi."photoUrl") AS "photoUrl",
+        MAX(vi."name") AS "name",
+        SUM(vi."quantity") AS "soldQty",
+        SUM(vi."price" * vi."quantity") AS "revenue",
+        SUM(vi."avgCostPrice" * vi."quantity") AS "cogs"
+      FROM "VoucherItem" vi
+      INNER JOIN "Voucher" v ON vi."voucherId" = v."id"
+      WHERE v."companyId" = ${companyId}
+        AND v."isDeleted" = FALSE
+        AND vi."isDeleted" = FALSE
+        AND v."createdAt" >= ${startOfDay}
+        AND v."createdAt" < ${endOfDay}
+        ${voucherBranch}
+      GROUP BY vi."productId"
+    ),
+    refunds AS (
+      SELECT
+        ri."productId" AS "productId",
+        SUM(ri."price" * ri."quantity") AS "refundedRevenue",
+        SUM(ri."avgCostPrice" * ri."quantity") AS "refundedCogs"
+      FROM "RefundItem" ri
+      INNER JOIN "Refund" rf ON ri."refundId" = rf."id"
+      WHERE rf."companyId" = ${companyId}
+        AND rf."isDeleted" = FALSE
+        AND rf."date" >= ${startOfDay}
+        AND rf."date" < ${endOfDay}
+        ${refundBranch}
+      GROUP BY ri."productId"
+    ),
+    wastage AS (
+      SELECT
+        ii."productId" AS "productId",
+        SUM(ii."totalAmount") AS "wastageAmount"
+      FROM "InventoryItem" ii
+      INNER JOIN "InventoryManagement" im ON ii."inventoryId" = im."id"
+      WHERE im."companyId" = ${companyId}
+        AND im."isDeleted" = FALSE
+        AND im."type" IN ('EXPIRED', 'DAMAGED')
+        AND im."createdAt" >= ${startOfDay}
+        AND im."createdAt" < ${endOfDay}
+        ${wastageBranch}
+      GROUP BY ii."productId"
+    )
+    SELECT
+      s."productId",
+      s."name",
+      s."photoUrl",
+      s."soldQty",
+      s."revenue",
+      s."cogs",
+      COALESCE(r."refundedRevenue", 0) AS "refundedRevenue",
+      COALESCE(r."refundedCogs", 0) AS "refundedCogs",
+      COALESCE(w."wastageAmount", 0) AS "wastageAmount",
+
+      (s."revenue" - COALESCE(r."refundedRevenue", 0)) AS "netSales",
+      (s."cogs" - COALESCE(r."refundedCogs", 0)) AS "netCogs",
+
+      ((s."revenue" - COALESCE(r."refundedRevenue", 0))
+        - (s."cogs" - COALESCE(r."refundedCogs", 0))) AS "grossProfit",
+
+      (((s."revenue" - COALESCE(r."refundedRevenue", 0))
+        - (s."cogs" - COALESCE(r."refundedCogs", 0)))
+        - COALESCE(w."wastageAmount", 0)) AS "netProfit",
+
+      -- Gross margin: COGS ချည်းသာ နှုတ်ထား
+      CASE
+        WHEN (s."revenue" - COALESCE(r."refundedRevenue", 0)) = 0 THEN 0
+        ELSE ROUND((
+          ((s."revenue" - COALESCE(r."refundedRevenue", 0))
+            - (s."cogs" - COALESCE(r."refundedCogs", 0)))
+          / NULLIF((s."revenue" - COALESCE(r."refundedRevenue", 0)), 0)
+        ) * 100, 2)
+      END AS "grossMarginPercent",
+
+      -- Net margin: COGS + wastage (product-specific) နှုတ်ထား
+      CASE
+        WHEN (s."revenue" - COALESCE(r."refundedRevenue", 0)) = 0 THEN 0
+        ELSE ROUND((
+          (((s."revenue" - COALESCE(r."refundedRevenue", 0))
+            - (s."cogs" - COALESCE(r."refundedCogs", 0)))
+            - COALESCE(w."wastageAmount", 0))
+          / NULLIF((s."revenue" - COALESCE(r."refundedRevenue", 0)), 0)
+        ) * 100, 2)
+      END AS "netMarginPercent"
+
+    FROM sales s
+    LEFT JOIN refunds r ON s."productId" = r."productId"
+    LEFT JOIN wastage w ON s."productId" = w."productId"
+    ORDER BY "grossProfit" DESC
+  `,
+    );
+
+    return result.map((item) => ({
+      ...item,
+      soldQty: Number(item.soldQty),
+    }));
   }
 
   async getTotalByDateAndBranchAndCompany(
@@ -428,14 +761,14 @@ export class IncomeService {
     endDate?: Date,
   ) {
     const result: {
-      itemId: number;
+      productId: number;
       name: string;
       totalQuantity: bigint;
     }[] = await this.prisma.$queryRaw(
       Prisma.sql`
       SELECT
-        vi."itemId",
-        vi."name",
+        vi."productId",
+        MAX(vi."name") AS "name",
         SUM(vi."quantity") AS "totalQuantity"
       FROM "VoucherItem" vi
       INNER JOIN "Voucher" v ON vi."voucherId" = v."id"
@@ -444,7 +777,7 @@ export class IncomeService {
         ${branchId ? Prisma.sql`AND v."branchId" = ${branchId}` : Prisma.empty}
         ${startDate ? Prisma.sql`AND v."createdAt" >= ${startDate}` : Prisma.empty}
         ${endDate ? Prisma.sql`AND v."createdAt" < ${endDate}` : Prisma.empty}
-      GROUP BY vi."itemId", vi."name"
+      GROUP BY vi."productId"
       ORDER BY "totalQuantity" DESC
       LIMIT 10
     `,
@@ -464,14 +797,14 @@ export class IncomeService {
   ) {
     // console.log('sdate is ', startDate, endDate, companyId);
     const result: {
-      itemId: number;
+      productId: number;
       name: string;
       totalQuantity: bigint;
     }[] = await this.prisma.$queryRaw(
       Prisma.sql`
       SELECT
-        p."id" AS itemId,
-        p."name",
+        p."id" AS "productId",
+        MAX(p."name") AS "name",
         COALESCE(SUM(
           CASE 
             WHEN v."id" IS NOT NULL
@@ -484,11 +817,11 @@ export class IncomeService {
         ), 0) AS "totalQuantity"
       FROM "Product" p
       LEFT JOIN "VoucherItem" vi
-          ON p."id" = vi."itemId"
+          ON p."id" = vi."productId"
       LEFT JOIN "Voucher" v ON vi."voucherId" = v."id"
         AND v."isDeleted" = false
       WHERE p."companyId" = ${companyId}
-      GROUP BY p."id", p."name"
+      GROUP BY p."id"
       ORDER BY "totalQuantity" ASC
       LIMIT 10
     `,

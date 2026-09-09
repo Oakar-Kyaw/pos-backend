@@ -53,15 +53,15 @@ export class IncomeController {
     return this.incomeService.remove(+id);
   }
 
-  @Get('profit-loss')
+  @Get('profit/loss')
   profitandloss(
     @Req() req,
     @Query('filterBranchId') filterBranchId: number,
     @Query('date') date?: string,
   ) {
     const { id: userId, companyId, branchId } = req.user;
-    console.log('filer', filterBranchId);
-    return this.incomeService.findAll(
+    console.log('filer', date);
+    return this.incomeService.profitandloss(
       userId,
       companyId,
       filterBranchId ? filterBranchId : branchId,
