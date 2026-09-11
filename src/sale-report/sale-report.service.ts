@@ -5,14 +5,19 @@ import {
 } from '@nestjs/common';
 import { CreateSaleReportDto } from './dto/create-sale-report.dto';
 import { UpdateSaleReportDto } from './dto/update-sale-report.dto';
-import { Prisma } from '@prisma/client';
+import { Prisma, TransactionType, TransferType } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { Decimal } from '@prisma/client/runtime/client';
 import { fromZonedTime } from 'date-fns-tz';
+import { CreateTransferDto } from './dto/create-transfer.dto';
+import { IncomeService } from 'src/income/income.service';
 
 @Injectable()
 export class SaleReportService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly income: IncomeService,
+  ) {}
 
   async create(
     dto: CreateSaleReportDto,
@@ -44,6 +49,7 @@ export class SaleReportService {
         where: {
           companyId,
           branchId,
+          isDeleted: false,
           type: 'CLOSING_BALANCE',
           date: {
             gte: new Date(closingDate.setHours(0, 0, 0, 0)),
@@ -64,6 +70,7 @@ export class SaleReportService {
 
       const existingOpening = await tx.saleReport.findFirst({
         where: {
+          isDeleted: false,
           companyId,
           branchId,
           type: 'OPENING_BALANCE',
@@ -118,25 +125,26 @@ export class SaleReportService {
     branchId: number,
     page: number,
     limit: number,
-    startDate?: string,
-    endDate?: string,
+    date: string,
   ) {
     const skip = (page - 1) * limit;
 
+    if (!date) {
+      throw new BadRequestException('date is required');
+    }
+
+    const dateOnly = date.slice(0, 10);
+    const timezone = 'Asia/Yangon';
+    const startOfDay = fromZonedTime(`${dateOnly}T00:00:00.000`, timezone);
+    const endOfDay = fromZonedTime(`${dateOnly}T23:59:59.999`, timezone);
     const where: any = {
+      isDeleted: false,
       companyId,
       ...(branchId && { branchId }),
       // ...(userId && { userId }),
+      date: { gte: startOfDay, lte: endOfDay },
     };
-
-    // Date filtering
-    if (startDate || endDate) {
-      where.date = {
-        ...(startDate && { gte: new Date(startDate) }),
-        ...(endDate && { lte: new Date(endDate) }),
-      };
-    }
-
+    // console.log('date of opening amount is ', startOfDay, endOfDay);
     const [data, total] = await this.prisma.$transaction([
       this.prisma.saleReport.findMany({
         where,
@@ -185,93 +193,114 @@ export class SaleReportService {
     companyId: number,
     branchId?: number,
   ) {
-    type ExpenseSumRow = {
-      totalGeneralExpense: number;
-      totalPurchase: number;
-    };
-    console.log('=== DEBUG: raw date param ===', JSON.stringify(date));
-
     if (!date) {
       throw new BadRequestException('date is required');
     }
+
     const dateOnly = date.slice(0, 10);
     const timezone = 'Asia/Yangon';
-    // date string ('2026-09-04') ကို local timezone start/end of day → UTC ပြောင်းမယ်
     const startOfDay = fromZonedTime(`${dateOnly}T00:00:00.000`, timezone);
     const endOfDay = fromZonedTime(`${dateOnly}T23:59:59.999`, timezone);
 
-    console.log('startOfDay', startOfDay);
-    console.log('endOfDay', endOfDay);
-    const { totalGeneralExpense, totalPurchase } =
-      await this.prisma.$transaction(async (tx) => {
-        const branchFilter = branchId
-          ? Prisma.sql`AND "branchId" = ${branchId}`
-          : Prisma.empty;
+    // 1 Income summary (sale, purchase, expense, debt, refund, repay)
+    const result = await this.income.getTotalByDateAndBranchAndCompany(
+      companyId,
+      startOfDay,
+      endOfDay,
+      branchId,
+    );
+    const todaySaleData = result[0];
 
-        const result: ExpenseSumRow[] =
-          await tx.$queryRaw` SELECT (SELECT COALESCE(SUM(amount), 0)
-     FROM "GeneralExpense"
-     WHERE "isDeleted" = false
-       AND "companyId" = ${companyId}
-       ${branchFilter}
-       AND "date" >= ${startOfDay}
-       AND "date" <= ${endOfDay}) AS "totalGeneralExpense",
+    const totalGeneralExpense = todaySaleData.expenseAmount;
+    const totalPurchase = todaySaleData.purchaseAmount;
+    const totalSaleAmount = todaySaleData.total;
+    const totalPaidAmount = todaySaleData.paymentIn;
+    const totalDebtAmount = todaySaleData.debtAmount;
+    const totalRefundAmount = todaySaleData.refundAmount;
+    const totalRepayAmount = todaySaleData.repayIn;
 
-    (SELECT COALESCE(SUM("totalAmount"), 0)
-     FROM "Purchase"
-     WHERE "isDeleted" = false
-       AND "companyId" = ${companyId}
-       ${branchFilter}
-       AND "orderDate" >= ${startOfDay}
-       AND "orderDate" <= ${endOfDay}) AS "totalPurchase"
-`;
-
-        console.log('result is ', result);
-
-        return {
-          totalGeneralExpense: Number(result[0].totalGeneralExpense ?? 0),
-          totalPurchase: Number(result[0].totalPurchase ?? 0),
-        };
-      });
-
-    const data = await this.prisma.saleReport.findMany({
+    // 2 Opening balance record for this day
+    const openingRecord = await this.prisma.saleReport.findFirst({
       where: {
-        branchId,
+        isDeleted: false,
         companyId,
+        branchId,
+        type: TransactionType.OPENING_BALANCE,
         date: { gte: startOfDay, lte: endOfDay },
       },
-      orderBy: { date: 'asc' },
     });
 
-    //console.log('data:', data);
-    // 5️⃣ Separate opening and closing amounts
-    let closingAmount: Decimal | number = 0;
-    let openingAmount: Decimal | number = 0;
-    let isClosed = false;
-
-    data.forEach((d) => {
-      if (d.type === 'CLOSING_BALANCE') {
-        closingAmount = d.amount;
-        isClosed = d.isClosed;
-      }
-      if (d.type === 'OPENING_BALANCE') {
-        openingAmount = d.amount;
-      }
+    // 3 Closing balance record for this day
+    const closingRecord = await this.prisma.saleReport.findFirst({
+      where: {
+        isDeleted: false,
+        companyId,
+        branchId,
+        type: TransactionType.CLOSING_BALANCE,
+        isClosed: true,
+        date: { gte: startOfDay, lte: endOfDay },
+      },
     });
+
+    // 4 Transfers for this day (internal + external)
+    const transfers = await this.prisma.transfer.findMany({
+      where: {
+        isDeleted: false,
+        companyId,
+        branchId,
+        date: { gte: startOfDay, lte: endOfDay },
+      },
+    });
+
+    // Total transfer amount (info/display purposes — all types)
+    const totalTransferAmount = transfers.reduce(
+      (sum, t) => sum.plus(t.amount),
+      new Prisma.Decimal(0),
+    );
+    // Only INTERNAL transfers actually leave the company/branch pool
+    const totalInternalTransferAmount = transfers
+      .filter((t) => t.transferType === TransferType.INTERNAL)
+      .reduce((sum, t) => sum.plus(t.amount), new Prisma.Decimal(0));
+
+    // Only EXTERNAL transfers actually leave the company/branch pool
+    const totalExternalTransferAmount = transfers
+      .filter((t) => t.transferType === TransferType.EXTERNAL)
+      .reduce((sum, t) => sum.plus(t.amount), new Prisma.Decimal(0));
+
+    // 5 Opening amount
+    const openingAmount = openingRecord?.amount ?? new Prisma.Decimal(0);
+
+    // 6 Closing amount
+    const closingAmount =
+      closingRecord?.amount ??
+      openingAmount
+        .plus(totalPaidAmount)
+        .plus(totalRepayAmount)
+        .minus(totalGeneralExpense)
+        .minus(totalPurchase)
+        .minus(totalRefundAmount)
+        .minus(totalExternalTransferAmount);
 
     return {
       success: true,
       message: 'get all opening and closing data',
       data: {
-        openingAmount,
-        closingAmount,
         totalGeneralExpense,
         totalPurchase,
-        isClosed,
+        totalSaleAmount,
+        totalPaidAmount,
+        totalDebtAmount,
+        totalRefundAmount,
+        totalRepayAmount,
+        totalTransferAmount,
+        totalExternalTransferAmount,
+        totalInternalTransferAmount,
+        openingAmount,
+        closingAmount,
+        isClosed: !!closingRecord,
       },
     };
   }
-
   async update(id: number, dto: UpdateSaleReportDto) {
     await this.findOne(id);
 
@@ -299,10 +328,243 @@ export class SaleReportService {
   }
 
   async remove(id: number) {
-    await this.findOne(id);
+    const target = await this.findOne(id);
 
-    return this.prisma.saleReport.delete({
-      where: { id },
+    return this.prisma.$transaction(async (tx) => {
+      const dateOnly = target.date.toISOString().slice(0, 10);
+      const timezone = 'Asia/Yangon';
+
+      const dayBounds = (dateStr: string) => ({
+        gte: fromZonedTime(`${dateStr}T00:00:00.000`, timezone),
+        lte: fromZonedTime(`${dateStr}T23:59:59.999`, timezone),
+      });
+
+      if (target.type === TransactionType.CLOSING_BALANCE) {
+        const nextDay = new Date(target.date);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const nextDayStr = nextDay.toISOString().slice(0, 10);
+
+        const nextDayClosing = await tx.saleReport.findFirst({
+          where: {
+            isDeleted: false,
+            companyId: target.companyId,
+            branchId: target.branchId,
+            type: TransactionType.CLOSING_BALANCE,
+            date: dayBounds(nextDayStr),
+          },
+        });
+
+        // Later day already closed on top of this one → block
+        if (nextDayClosing) {
+          throw new BadRequestException(
+            "Cannot delete: the next day has already been closed based on this balance. Delete the next day's closing first.",
+          );
+        }
+
+        // Safe to cascade — remove the auto-derived opening of next day too
+        await tx.saleReport.updateMany({
+          where: {
+            isDeleted: false,
+            companyId: target.companyId,
+            branchId: target.branchId,
+            type: TransactionType.OPENING_BALANCE,
+            date: dayBounds(nextDayStr),
+          },
+          data: { isDeleted: true },
+        });
+      }
+
+      if (target.type === TransactionType.OPENING_BALANCE) {
+        // If this day itself is already closed, deleting its opening would corrupt its own closing
+        if (target.isClosed) {
+          throw new BadRequestException(
+            "Cannot delete: this day has already been closed. Delete this day's closing balance first.",
+          );
+        }
+
+        const prevDay = new Date(target.date);
+        prevDay.setDate(prevDay.getDate() - 1);
+        const prevDayStr = prevDay.toISOString().slice(0, 10);
+
+        await tx.saleReport.updateMany({
+          where: {
+            isDeleted: false,
+            companyId: target.companyId,
+            branchId: target.branchId,
+            type: TransactionType.CLOSING_BALANCE,
+            date: dayBounds(prevDayStr),
+          },
+          data: { isDeleted: true },
+        });
+      }
+
+      const deleted = await tx.saleReport.update({
+        where: { id },
+        data: { isDeleted: true },
+      });
+
+      return {
+        success: true,
+        message: 'Deleted successfully',
+      };
     });
+  }
+
+  async createTransferAmount(
+    userId: number,
+    companyId: number,
+    dto: CreateTransferDto,
+    branchId?: number,
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new BadRequestException('Sale user not found');
+    }
+
+    // Prevent self-transfer
+    if (dto.from === dto.to) {
+      throw new BadRequestException('From and To account must be different');
+    }
+
+    const amount = new Prisma.Decimal(dto.amount);
+
+    await this.prisma.$transaction(async (tx) => {
+      const [fromAccount, toAccount] = await Promise.all([
+        tx.paymentData.findFirst({
+          where: { id: dto.from, companyId, isActive: true },
+        }),
+        tx.paymentData.findFirst({
+          where: { id: dto.to, companyId, isActive: true },
+        }),
+      ]);
+      if (!fromAccount) {
+        throw new BadRequestException('Source account not found');
+      }
+      if (!toAccount) {
+        throw new BadRequestException('Destination account not found');
+      }
+
+      //  Check sufficient balance
+      if (fromAccount.balance.lessThan(amount)) {
+        throw new BadRequestException('Insufficient balance in source account');
+      }
+
+      await tx.transfer.create({
+        data: {
+          date: dto.date,
+          amount: dto.amount,
+          from: dto.from,
+          to: dto.to,
+          transferType: dto.transferType,
+          saleId: userId,
+          companyId: companyId,
+          ...(branchId && { branchId: Number(branchId) }),
+        },
+        include: {
+          fromAccount: true,
+          toAccount: true,
+          saleUser: true,
+          company: true,
+          branch: true,
+        },
+      });
+
+      // Atomically update both balances
+      await tx.paymentData.update({
+        where: { id: dto.from },
+        data: { balance: { decrement: amount } },
+      });
+
+      await tx.paymentData.update({
+        where: { id: dto.to },
+        data: { balance: { increment: amount } },
+      });
+    });
+    return {
+      success: true,
+      message: 'Transfer amount created',
+    };
+  }
+
+  async getTransferAmount(
+    date: string,
+    userId: number,
+    companyId: number,
+    branchId?: number,
+  ) {
+    if (!date) {
+      throw new BadRequestException('date is required');
+    }
+
+    const dateOnly = date.slice(0, 10);
+    const timezone = 'Asia/Yangon';
+    const startOfDay = fromZonedTime(`${dateOnly}T00:00:00.000`, timezone);
+    const endOfDay = fromZonedTime(`${dateOnly}T23:59:59.999`, timezone);
+
+    // 1 Transfers for this day (in/out)
+    const data = await this.prisma.transfer.findMany({
+      where: {
+        isDeleted: false,
+        companyId,
+        ...(branchId && { branchId }),
+        date: { gte: startOfDay, lte: endOfDay },
+      },
+      include: {
+        fromAccount: true,
+        toAccount: true,
+        saleUser: true,
+      },
+      orderBy: {
+        id: 'desc',
+      },
+    });
+
+    return {
+      success: true,
+      message: 'get all transfer data',
+      data,
+    };
+  }
+
+  async removeTransferAmount(id: number) {
+    const data = await this.prisma.$transaction(async (tx) => {
+      const deleted = await tx.transfer.update({
+        where: { id },
+        data: {
+          isDeleted: true,
+        },
+        include: {
+          fromAccount: true,
+          toAccount: true,
+        },
+      });
+      //readd to fromAccount
+      await tx.paymentData.update({
+        where: {
+          id: Number(deleted.from),
+        },
+        data: {
+          balance: {
+            increment: Number(deleted.amount),
+          },
+        },
+      });
+      //subtract from toAccount
+      await tx.paymentData.update({
+        where: {
+          id: Number(deleted.to),
+        },
+        data: {
+          balance: {
+            decrement: Number(deleted.amount),
+          },
+        },
+      });
+    });
+
+    return {
+      success: true,
+      message: 'Delete Transfer Successfully',
+    };
   }
 }

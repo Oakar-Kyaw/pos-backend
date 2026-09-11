@@ -3,13 +3,10 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsEnum,
   IsDate,
   IsNumber,
-  IsInt,
   Min,
 } from 'class-validator';
-import { TransactionType } from '@prisma/client';
 
 export class CreateSaleReportDto {
   @Expose()

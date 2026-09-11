@@ -911,12 +911,14 @@ export class PurchaseService {
           where: {
             id,
           },
+          include: {
+            purchasePayments: true,
+          },
 
           data: {
             isDeleted: true,
           },
         });
-
         return deleted;
       });
 
@@ -982,11 +984,27 @@ export class PurchaseService {
           where: {
             id,
           },
+          include: {
+            purchasePayments: true,
+          },
           data: {
             status: 'SUCCESS',
           },
         });
+        //subtract amount in balance
+        const paymentValues: Prisma.Sql[] = data.purchasePayments.map(
+          (payment) =>
+            Prisma.sql`(${payment.paymentDataId}, ${payment.amount})`,
+        );
 
+        await tx.$executeRaw`
+               UPDATE "PaymentData" As pd
+               SET balance = pd.balance - v.amount::numeric
+               FROM (
+                VALUES ${Prisma.join(paymentValues)}
+               ) As v(id, amount)
+               WHERE pd.id = v.id::integer
+              `;
         return data;
       });
 

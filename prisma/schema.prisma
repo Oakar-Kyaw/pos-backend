@@ -123,6 +123,11 @@ enum PurchaseStatus {
   FAILED
 }
 
+enum TransferType {
+  EXTERNAL
+  INTERNAL
+}
+
 //////////////////////////////////////////////////////
 // MODELS (alphabetical)
 //////////////////////////////////////////////////////
@@ -977,6 +982,8 @@ model Transfer {
   createdAt     DateTime  @default(now())
   date          DateTime
   amount        Decimal     @db.Decimal(12, 2) 
+
+  transferType  TransferType @default(INTERNAL)
 
   from          Int
   fromAccount   PaymentData @relation("fromAccount",fields: [from], references: [id])

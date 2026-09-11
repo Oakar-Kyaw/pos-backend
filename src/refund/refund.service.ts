@@ -138,8 +138,24 @@ export class RefundService {
         );
         await tx.$executeRaw`UPDATE "Product" AS p SET stock = p.stock + v.qty FROM (VALUES ${increaseValues}) AS v(id, qty) WHERE p.id = v.id`;
 
+        //subtract amount in balance
+        const values: Prisma.Sql[] = dto.refundPayment.map(
+          (payment) =>
+            Prisma.sql`(${payment.paymentDataId}, ${payment.amount})`,
+        );
+
+        await tx.$executeRaw`
+             UPDATE "PaymentData" As pd
+             SET balance = pd.balance - v.amount::numeric
+             FROM (
+              VALUES ${Prisma.join(values)}
+             ) As v(id, amount)
+             WHERE pd.id = v.id::integer
+            `;
+
         return createdRefund;
       });
+
       return {
         success: true,
         message: 'Refund created successfully',
@@ -370,6 +386,7 @@ export class RefundService {
       select: {
         voucherId: true,
         refundItems: true,
+        refundPayment: true,
         amount: true,
         refundType: true,
       },
@@ -602,6 +619,37 @@ export class RefundService {
       );
       await tx.$executeRaw`UPDATE "Product" AS p SET stock = p.stock + v.qty FROM (VALUES ${increaseValues}) AS v(id, qty) WHERE p.id = v.id`;
 
+      //add amount in balance
+      const values: Prisma.Sql[] = existingRefund.refundPayment.map(
+        (payment) => Prisma.sql`(${payment.paymentDataId}, ${payment.amount})`,
+      );
+
+      await tx.$executeRaw`
+             UPDATE "PaymentData" As pd
+             SET balance = pd.balance + v.amount::numeric
+             FROM (
+              VALUES ${Prisma.join(values)}
+             ) As v(id, amount)
+             WHERE pd.id = v.id::integer
+            `;
+
+      //subtract amount in balance in update
+      if (dto.refundPayment && dto.refundPayment.length > 0) {
+        const refundValue: Prisma.Sql[] = dto.refundPayment.map(
+          (payment) =>
+            Prisma.sql`(${payment.paymentDataId}, ${payment.amount})`,
+        );
+
+        await tx.$executeRaw`
+             UPDATE "PaymentData" As pd
+             SET balance = pd.balance - v.amount::numeric
+             FROM (
+              VALUES ${Prisma.join(refundValue)}
+             ) As v(id, amount)
+             WHERE pd.id = v.id::integer
+            `;
+      }
+
       return data;
     });
 
@@ -623,6 +671,7 @@ export class RefundService {
           id,
         },
         include: {
+          refundPayment: true,
           refundItems: {
             include: {
               product: true,
@@ -651,7 +700,19 @@ export class RefundService {
       // console.log('value is ', values);
       // const result =
       await tx.$executeRaw`UPDATE "Product" AS p SET stock = p.stock - v.qty FROM (VALUES ${reduceValues}) AS v(id, qty) WHERE p.id = v.id`;
+      //add amount in balance
+      const values: Prisma.Sql[] = deleted.refundPayment.map(
+        (payment) => Prisma.sql`(${payment.paymentDataId}, ${payment.amount})`,
+      );
 
+      await tx.$executeRaw`
+             UPDATE "PaymentData" As pd
+             SET balance = pd.balance + v.amount::numeric
+             FROM (
+              VALUES ${Prisma.join(values)}
+             ) As v(id, amount)
+             WHERE pd.id = v.id::integer
+            `;
       return data;
     });
 

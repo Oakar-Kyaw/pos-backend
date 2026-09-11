@@ -40,16 +40,16 @@ export class IncomeService {
     // console.log(startYear, endYear, thisMonth);
     const yearlySale = await this.getTotalByDateAndBranchAndCompany(
       companyId,
-      branchId,
       startYear,
       endYear,
+      branchId,
     );
 
     const monthlySale = await this.getTotalByDateAndBranchAndCompany(
       companyId,
-      branchId,
       thisMonth,
       thisEndMonth,
+      branchId,
     );
 
     const getMonthByMonth = await this.getMonthlyTotals(
@@ -61,9 +61,10 @@ export class IncomeService {
 
     const getTodaySale = await this.getTotalByDateAndBranchAndCompany(
       companyId,
-      branchId,
+
       startOfDay,
       endOfDay,
+      branchId,
     );
 
     const mostSellingItem = await this.mostSellingItem(
@@ -127,7 +128,7 @@ export class IncomeService {
       getMonthlyTopSaleUser,
       getTodaySale: getTodaySale[0],
     };
-    console.log('get dta sale is ', data);
+    // console.log('get dta sale is ', data);
     return {
       success: true,
       message: 'Get all income data',
@@ -168,7 +169,7 @@ export class IncomeService {
         999,
       ),
     );
-    console.log('now', now, endOfDay);
+    // console.log('now', now, endOfDay);
     const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const thisEndMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const startYear = new Date(now.getFullYear(), 0, 1);
@@ -515,9 +516,9 @@ export class IncomeService {
 
   async getTotalByDateAndBranchAndCompany(
     companyId: number,
-    branchId: number,
     startDate: Date,
     endDate: Date,
+    branchId?: number,
   ) {
     const voucherBranch = branchId
       ? Prisma.sql`AND v."branchId" = ${branchId}`

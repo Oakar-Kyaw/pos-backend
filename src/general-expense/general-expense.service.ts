@@ -126,7 +126,19 @@ export class GeneralExpenseService {
           },
         },
       });
+      //subtract amount in balance
+      const values: Prisma.Sql[] = dto.generalExpensePayment.map(
+        (payment) => Prisma.sql`(${payment.paymentDataId}, ${payment.amount})`,
+      );
 
+      await tx.$executeRaw`
+          UPDATE "PaymentData" As pd
+          SET balance = pd.balance - v.amount::numeric
+          FROM (
+              VALUES ${Prisma.join(values)}
+          ) As v(id, amount)
+          WHERE pd.id = v.id::integer
+      `;
       return data;
     });
 
@@ -365,6 +377,21 @@ export class GeneralExpenseService {
             generalExpenseId: id,
           },
         });
+
+        //add amount in balance
+        const values: Prisma.Sql[] = existingExpense.generalExpensePayment.map(
+          (payment) =>
+            Prisma.sql`(${payment.paymentDataId}, ${payment.amount})`,
+        );
+
+        await tx.$executeRaw`
+            UPDATE "PaymentData" As pd
+            SET balance = pd.balance + v.amount::numeric
+            FROM (
+              VALUES ${Prisma.join(values)}
+            ) As v(id, amount)
+            WHERE pd.id = v.id::integer
+           `;
       }
 
       // ======================================================
@@ -469,6 +496,22 @@ export class GeneralExpenseService {
           },
         },
       });
+      //subtract amount in balance
+      if (dto.generalExpensePayment && dto.generalExpensePayment.length > 0) {
+        const values: Prisma.Sql[] = dto.generalExpensePayment.map(
+          (payment) =>
+            Prisma.sql`(${payment.paymentDataId}, ${payment.amount})`,
+        );
+
+        await tx.$executeRaw`
+          UPDATE "PaymentData" As pd
+          SET balance = pd.balance - v.amount::numeric
+          FROM (
+            VALUES ${Prisma.join(values)}
+          ) As v(id, amount)
+          WHERE pd.id = v.id::integer
+          `;
+      }
 
       return data;
     });
@@ -492,15 +535,31 @@ export class GeneralExpenseService {
     // ------------------------------------------------------------
     // Soft Delete
     // ------------------------------------------------------------
+    await this.prisma.$transaction(async (tx) => {
+      const data = await tx.generalExpense.update({
+        where: {
+          id,
+        },
+        include: {
+          generalExpensePayment: true,
+        },
+        data: {
+          isDeleted: true,
+        },
+      });
+      //add amount in balance
+      const values: Prisma.Sql[] = data.generalExpensePayment.map(
+        (payment) => Prisma.sql`(${payment.paymentDataId}, ${payment.amount})`,
+      );
 
-    await this.prisma.generalExpense.update({
-      where: {
-        id,
-      },
-
-      data: {
-        isDeleted: true,
-      },
+      await tx.$executeRaw`
+        UPDATE "PaymentData" As pd
+        SET balance = pd.balance + v.amount::numeric
+        FROM (
+          VALUES ${Prisma.join(values)}
+        ) As v(id, amount)
+        WHERE pd.id = v.id::integer
+      `;
     });
 
     return {

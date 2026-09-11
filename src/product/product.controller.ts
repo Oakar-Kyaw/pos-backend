@@ -83,6 +83,24 @@ export class ProductController {
     );
   }
 
+  @Get('low-stocks/all')
+  findLowStock(
+    @Req() req,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+    @Query('search') search?: string,
+  ) {
+    const { id: userId, companyId } = req.user;
+
+    return this.productService.getLowStockProducts(
+      userId,
+      companyId,
+      Number(page),
+      Number(limit),
+      search,
+    );
+  }
+
   @Get(':id')
   findOne(@Req() req, @Param('id') id: string) {
     const { id: userId } = req.user;

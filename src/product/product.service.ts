@@ -131,7 +131,9 @@ export class ProductService {
       const products = await this.prisma.product.findMany({
         where,
         include: { category: true },
-        orderBy: { id: 'desc' },
+        orderBy: { name: 'asc' },
+        skip,
+        take: limit,
       });
 
       console.log('product search is ', products);
@@ -211,6 +213,67 @@ export class ProductService {
         limit,
         total,
         totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  // LOW STOCK DATA + SEARCH
+  async getLowStockProducts(
+    userId: number,
+    companyId: number,
+    page = 1,
+    limit = 10,
+    search?: string,
+  ) {
+    const skip = (page - 1) * limit;
+
+    const searchCondition = search
+      ? Prisma.sql`AND (
+        p.name ILIKE ${'%' + search + '%'} OR
+        p.code ILIKE ${'%' + search + '%'} OR
+        p.barcode ILIKE ${'%' + search + '%'}
+      )`
+      : Prisma.empty;
+
+    const baseWhere = Prisma.sql`
+    p."companyId" = ${companyId}
+    AND p."isDeleted" = false
+    AND p."minStock" IS NOT NULL
+    AND p."stock" <= p."minStock"
+    ${searchCondition}
+  `;
+
+    const [products, totalResult] = await Promise.all([
+      this.prisma.$queryRaw<any[]>`
+      SELECT
+        p.*,
+        CASE WHEN c.id IS NOT NULL THEN row_to_json(c.*) ELSE NULL END AS category
+      FROM "Product" p
+      LEFT JOIN "Category" c ON c.id = p."categoryId"
+      WHERE ${baseWhere}
+      ORDER BY p.stock ASC, p.name ASC
+      OFFSET ${skip}
+      LIMIT ${limit}
+    `,
+      this.prisma.$queryRaw<{ count: bigint }[]>`
+      SELECT COUNT(*)::bigint AS count
+      FROM "Product" p
+      WHERE ${baseWhere}
+    `,
+    ]);
+
+    const total = Number(totalResult[0]?.count ?? 0);
+
+    return {
+      success: true,
+      message: 'Low stock products fetched successfully',
+      data: products,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        isSearch: !!search,
       },
     };
   }

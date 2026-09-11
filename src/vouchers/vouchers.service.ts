@@ -196,19 +196,18 @@ export class VouchersService {
       });
 
       //add amount in balance
-      // const values: Prisma.Sql[] = dto.payments.map(
-      //   (payment) =>
-      //     Prisma.sql`(${payment.paymentDataId}, ${payment.amount})`,
-      // );
+      const values: Prisma.Sql[] = dto.payments.map(
+        (payment) => Prisma.sql`(${payment.paymentDataId}, ${payment.amount})`,
+      );
 
-      // await tx.$executeRaw`
-      //  UPDATE "PaymentData" As pd
-      //  SET balance = pd.balance + v.amount::numeric
-      //  FROM (
-      //   VALUES ${Prisma.join(values)}
-      //  ) As v(id, amount)
-      //  WHERE pd.id = v.id::integer
-      // `;
+      await tx.$executeRaw`
+       UPDATE "PaymentData" As pd
+       SET balance = pd.balance + v.amount::numeric
+       FROM (
+        VALUES ${Prisma.join(values)}
+       ) As v(id, amount)
+       WHERE pd.id = v.id::integer
+      `;
 
       return createdVoucher;
     });
@@ -495,12 +494,49 @@ export class VouchersService {
     if (!(isAdmin(role) || isManager(role)))
       throw new UnauthorizedException("Voucher can't be deleted");
     await this.findOne(id);
+    const deleted = await this.prisma.$transaction(async (tx) => {
+      const data = await tx.voucher.update({
+        where: { id },
+        data: {
+          isDeleted: true,
+        },
+        include: {
+          payments: true,
+          items: true,
+        },
+      });
+      // ======================================================
+      // UPDATE STOCK
+      // ======================================================
+      const productValues = Prisma.join(
+        data.items.map(
+          (pr) => Prisma.sql`(${pr.productId}::int, ${pr.quantity}::int)`,
+        ),
+        ',',
+      );
 
-    const deleted = await this.prisma.voucher.update({
-      where: { id },
-      data: {
-        isDeleted: true,
-      },
+      await tx.$executeRaw`
+                UPDATE "Product" AS p
+                SET
+                  "stock" = p."stock" + v.qty
+                FROM (VALUES ${productValues}) AS v(id, qty)
+                WHERE p.id = v.id
+              `;
+
+      //subtract amount in balance
+      const values: Prisma.Sql[] = data.payments.map(
+        (payment) => Prisma.sql`(${payment.paymentDataId}, ${payment.amount})`,
+      );
+
+      await tx.$executeRaw`
+       UPDATE "PaymentData" As pd
+       SET balance = pd.balance - v.amount::numeric
+       FROM (
+        VALUES ${Prisma.join(values)}
+       ) As v(id, amount)
+       WHERE pd.id = v.id::integer
+      `;
+      return data;
     });
 
     return {
@@ -589,7 +625,17 @@ export class VouchersService {
             existDebt: newRemaining > 0,
           },
         });
-
+        //add amount in balance
+        await tx.paymentData.update({
+          where: {
+            id: Number(dto.paymentDataId),
+          },
+          data: {
+            balance: {
+              increment: dto.amount,
+            },
+          },
+        });
         return repay;
       });
 

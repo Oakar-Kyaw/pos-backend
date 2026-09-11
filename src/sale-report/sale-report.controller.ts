@@ -10,11 +10,13 @@ import {
   DefaultValuePipe,
   Query,
   ParseIntPipe,
+  ForbiddenException,
 } from '@nestjs/common';
 import { SaleReportService } from './sale-report.service';
 import { CreateSaleReportDto } from './dto/create-sale-report.dto';
 import { UpdateSaleReportDto } from './dto/update-sale-report.dto';
-
+import { CreateTransferDto } from './dto/create-transfer.dto';
+import { Role } from '@prisma/client';
 @Controller('api/v1/sale-reports')
 export class SaleReportController {
   constructor(private readonly saleReportService: SaleReportService) {}
@@ -35,8 +37,7 @@ export class SaleReportController {
     @Req() req,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
+    @Query('date') date: string,
   ) {
     const { id: userId, companyId, branchId } = req.user;
 
@@ -46,8 +47,7 @@ export class SaleReportController {
       branchId,
       page,
       limit,
-      startDate,
-      endDate,
+      date,
     );
   }
 
@@ -66,6 +66,35 @@ export class SaleReportController {
       branchId,
     );
   }
+  @Post('transfer')
+  createTransfer(@Req() req, @Body() createTransfer: CreateTransferDto) {
+    const { id: userId, companyId, branchId } = req.user;
+    return this.saleReportService.createTransferAmount(
+      Number(userId),
+      Number(companyId),
+      createTransfer,
+      branchId,
+    );
+  }
+
+  @Get('transfer/all')
+  getTransferAmount(@Req() req, @Query('date') date: string) {
+    const { id: userId, companyId, branchId } = req.user;
+
+    return this.saleReportService.getTransferAmount(
+      date,
+      userId,
+      companyId,
+      branchId,
+    );
+  }
+
+  @Delete('transfer/:id')
+  deleteTransferAmount(@Req() req, @Param('id') id: number) {
+    const { id: userId, companyId, branchId, role } = req.user;
+    if (role !== Role.ADMIN) throw new ForbiddenException("You can't delete");
+    return this.saleReportService.removeTransferAmount(id);
+  }
 
   @Patch(':id')
   update(
@@ -76,7 +105,9 @@ export class SaleReportController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: number) {
+  remove(@Req() req, @Param('id') id: number) {
+    const { id: userId, companyId, branchId, role } = req.user;
+    if (role !== Role.ADMIN) throw new ForbiddenException("You can't delete");
     return this.saleReportService.remove(id);
   }
 }
