@@ -9,23 +9,22 @@ import {
   Query,
   ParseIntPipe,
   UseInterceptors,
-  UseGuards,
   Req,
-  Res,
   UploadedFile,
-  BadRequestException,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateNotificationDeviceTokenDto } from './dto/create-notification-token.dto';
-import { Public } from 'src/utils/public';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { FileUpload } from 'src/utils/file-upload';
 
 @Controller('api/v1/users')
 //@UseGuards(AuthGuard) // Apply AuthGuard to all routes by default
 export class UserController {
   constructor(
     private readonly userService: UserService,
+    private readonly uploader: FileUpload,
     //private readonly fileUploadService: FileUpload,
   ) {}
 
@@ -92,16 +91,19 @@ export class UserController {
 
   //@UseInterceptors(FileInterceptor('photoUrl'))
   @Patch(':id')
-  update(
+  @UseInterceptors(FileInterceptor('photoUrl'))
+  async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateUserWithProfileDto: UpdateUserDto,
-    //  @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: Express.Multer.File,
   ) {
-    return this.userService.update(
-      id,
-      updateUserWithProfileDto,
-      //  file
-    );
+    let imageUrl: string | undefined;
+    if (file) {
+      imageUrl = await this.uploader.uploadPhoto(file, {
+        folderName: 'product',
+      });
+    }
+    return this.userService.update(id, updateUserWithProfileDto, imageUrl);
   }
 
   @Delete(':id')

@@ -325,12 +325,9 @@ export class UserService {
     };
   }
 
-  async update(
-    id: number,
-    updateUserDto: UpdateUserDto,
-    // file: Express.Multer.File,
-  ) {
-    let imageUrl;
+  async update(id: number, updateUserDto: UpdateUserDto, imageUrl?: string) {
+    const { firstName, lastName, email, phone, address } = updateUserDto;
+
     const existingUser = await this.prisma.user.findUnique({
       where: { id, isDeleted: false },
     });
@@ -366,9 +363,12 @@ export class UserService {
     const updateUser = await this.prisma.user.update({
       where: { id },
       data: {
-        ...updateUserDto,
-        // ...(file ? { photoUrl: imageUrl } : {}),
-        // ...(dto['role'] ? { role: updateRole } : {}),
+        ...(firstName && { firstName }),
+        ...(lastName && { lastName }),
+        ...(email && { email }),
+        ...(phone && { phone }),
+        ...(address && { address }),
+        ...(imageUrl && { photoUrl: imageUrl }),
       },
     });
     // await publishEvent(EVENTS.USER_EVENT, {

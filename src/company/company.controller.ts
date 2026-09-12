@@ -10,20 +10,24 @@ import {
   ParseIntPipe,
   UseInterceptors,
   UploadedFile,
-  BadRequestException,
 } from '@nestjs/common';
 import { CompanyService } from './company.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { FileUpload } from 'src/utils/file-upload';
 // import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('api/v1/companies')
 export class CompanyController {
-  constructor(private readonly companyService: CompanyService) {}
+  constructor(
+    private readonly companyService: CompanyService,
+    private readonly uploader: FileUpload,
+  ) {}
 
   // ===== CREATE COMPANY =====
   @Post()
-  // @UseInterceptors(FileInterceptor('photoUrl')) // optional photo upload
+  @UseInterceptors(FileInterceptor('photoUrl')) // optional photo upload
   create(
     @Body() createCompanyDto: CreateCompanyDto,
     // @UploadedFile() file: Express.Multer.File
@@ -56,12 +60,23 @@ export class CompanyController {
 
   // ===== UPDATE COMPANY =====
   @Patch(':id')
-  update(
+  @UseInterceptors(FileInterceptor('photoUrl'))
+  async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateCompanyDto: UpdateCompanyDto,
-    // @UploadedFile() file: Express.Multer.File
+    @UploadedFile() file: Express.Multer.File,
   ) {
-    return this.companyService.update(id, updateCompanyDto /*, file*/);
+    let imageUrl: string | undefined;
+    if (file) {
+      imageUrl = await this.uploader.uploadPhoto(file, {
+        folderName: 'products',
+      });
+    }
+    return this.companyService.update(
+      id,
+      updateCompanyDto,
+      imageUrl /*, file*/,
+    );
   }
 
   // ===== DELETE COMPANY =====

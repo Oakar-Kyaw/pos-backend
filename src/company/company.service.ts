@@ -88,7 +88,7 @@ export class CompanyService {
 
     // Now page and pageSize are numbers ✅
 
-    const users = await this.prisma.company.findMany({
+    const company = await this.prisma.company.findMany({
       where: {
         // your where filters...
       },
@@ -99,7 +99,11 @@ export class CompanyService {
       },
     });
 
-    return users;
+    return {
+      success: true,
+      message: 'Company Lists',
+      data: company,
+    };
   }
 
   // -------- Get Company by ID --------
@@ -120,7 +124,11 @@ export class CompanyService {
   }
 
   // -------- Update Company --------
-  async update(id: number, updateCompanyDto: UpdateCompanyDto) {
+  async update(
+    id: number,
+    updateCompanyDto: UpdateCompanyDto,
+    imageUrl?: string,
+  ) {
     const existingCompany = await this.prisma.company.findUnique({
       where: { id },
     });
@@ -130,18 +138,11 @@ export class CompanyService {
     }
 
     // Check for unique constraints
-    if (
-      updateCompanyDto.email ||
-      updateCompanyDto.name ||
-      updateCompanyDto.phone
-    ) {
+    if (updateCompanyDto.name || updateCompanyDto.phone) {
       const conflictCompany = await this.prisma.company.findFirst({
         where: {
           NOT: { id },
           OR: [
-            ...(updateCompanyDto.email
-              ? [{ email: updateCompanyDto.email }]
-              : []),
             ...(updateCompanyDto.name ? [{ name: updateCompanyDto.name }] : []),
             ...(updateCompanyDto.phone
               ? [{ phone: updateCompanyDto.phone }]
@@ -160,6 +161,7 @@ export class CompanyService {
       where: { id },
       data: {
         ...updateCompanyDto,
+        photoUrl: imageUrl,
       },
     });
 

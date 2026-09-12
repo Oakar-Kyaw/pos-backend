@@ -202,6 +202,7 @@ model Branch {
   users    User[]    @relation("UserBranch")
   vouchers Voucher[] @relation("VoucherBranch")
   notificationDeviceTokens  NotificationDeviceToken[]
+  notification  Notification[]
   voucherCounters VoucherCounter[]
   suppliers  Supplier[]
   purchases  Purchase[]
@@ -256,6 +257,7 @@ model Company {
   repay              Repay[]
   hrRules            HrRule[]
   notificationDeviceTokens NotificationDeviceToken[]
+  notification       Notification[]
   purchases           Purchase[]
   suppliers           Supplier[]
   customers           Customer[]
@@ -1051,6 +1053,7 @@ model User {
   inventories    InventoryManagement[]
   repay   Repay[]
   notifictionDeviceToken NotificationDeviceToken[] 
+  notification  Notification[]
   purchases   Purchase[]
   auditLogs   AuditLogs[]
 
@@ -1165,4 +1168,51 @@ model RestockLog {
   productId    Int 
   product      Product @relation(fields: [productId], references: [id], onDelete: Cascade) 
   createdAt DateTime @default(now())
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+}
+
+enum NotificationNavigationType {
+  SYSTEM
+  LOW_STOCK
+  PAYMENT
+}
+
+model Notification {
+  id          Int      @id @default(autoincrement())
+
+  title       String
+  message     String
+
+  type        NotificationType @default(INFO)
+  navigationType NotificationNavigationType @default(SYSTEM)
+
+  userId      Int?
+  user        User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  companyId   Int?
+  company     Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  branchId    Int?
+  branch      Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
+
+  data        Json?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([isRead])
+  @@index([navigationType])
+  @@index([createdAt])
 }

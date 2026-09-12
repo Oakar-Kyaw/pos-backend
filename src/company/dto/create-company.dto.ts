@@ -1,13 +1,21 @@
 import { Expose, Transform } from 'class-transformer';
 import {
+  IsBoolean,
   IsEmail,
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
-  MinLength,
 } from 'class-validator';
+import { CompanyType } from '@prisma/client'; // Prisma-generated enum
 
 export class CreateCompanyDto {
+  @Expose()
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => (value ? String(value).trim() : null))
+  readonly country?: string;
+
   @Expose()
   @IsOptional()
   @IsString()
@@ -27,9 +35,8 @@ export class CreateCompanyDto {
   readonly email: string;
 
   @Expose()
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  @Transform(({ value }) => (value ? String(value).trim().toLowerCase() : null))
   password: string;
 
   @Expose()
@@ -49,4 +56,26 @@ export class CreateCompanyDto {
   @IsString()
   @Transform(({ value }) => (value ? String(value).trim() : null))
   readonly photoUrl?: string;
+
+  @Expose()
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => (value ? String(value).trim() : null))
+  readonly lat?: string;
+
+  @Expose()
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => (value ? String(value).trim() : null))
+  readonly long?: string;
+
+  @Expose()
+  @IsOptional()
+  @IsEnum(CompanyType)
+  readonly type?: CompanyType;
+
+  @Expose()
+  @IsOptional()
+  @IsBoolean()
+  readonly isTrial?: boolean;
 }
