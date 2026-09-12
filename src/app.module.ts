@@ -31,6 +31,7 @@ import { PurchaseModule } from './purchase/purchase.module';
 import { SupplierModule } from './supplier/supplier.module';
 import { CustomerModule } from './customer/customer.module';
 import { SocketGatewaysModule } from './socket-gateways/socket-gateways.module';
+import { NotificationModule } from './notification/notification.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -76,6 +77,7 @@ import { SocketGatewaysModule } from './socket-gateways/socket-gateways.module';
     SupplierModule,
     CustomerModule,
     SocketGatewaysModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1191,6 +1191,7 @@ model Notification {
 
   type        NotificationType @default(INFO)
   navigationType NotificationNavigationType @default(SYSTEM)
+  navigationId Int?
 
   userId      Int?
   user        User? @relation(fields: [userId], references: [id], onDelete: Cascade)
