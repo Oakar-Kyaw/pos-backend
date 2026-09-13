@@ -261,6 +261,7 @@ model Company {
   purchases           Purchase[]
   suppliers           Supplier[]
   customers           Customer[]
+  subscriptionEndDate DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt @default(now())
 }

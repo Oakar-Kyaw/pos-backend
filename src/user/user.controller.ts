@@ -18,6 +18,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateNotificationDeviceTokenDto } from './dto/create-notification-token.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FileUpload } from 'src/utils/file-upload';
+import { SkipSubscriptionCheck } from 'src/utils/skip-subscription';
 
 @Controller('api/v1/users')
 //@UseGuards(AuthGuard) // Apply AuthGuard to all routes by default
@@ -44,6 +45,7 @@ export class UserController {
   // @Serialize(CreatedUserResponseDto)
   //@UseInterceptors(FileInterceptor('photoUrl'))
   @Post()
+  @SkipSubscriptionCheck()
   create(@Req() req, @Body() createUserWithProfileDto: CreateUserDto) {
     const { id: userId, companyId, branchId } = req.user;
     return this.userService.create(

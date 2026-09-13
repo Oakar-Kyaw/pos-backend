@@ -12,6 +12,7 @@ import { AuthService } from './auth.service';
 //import { LoginResponseDto } from './dto/login-response.dto';
 import { LoginDto } from './dto/login.dto';
 import { Public } from 'src/utils/public';
+import { SkipSubscriptionCheck } from 'src/utils/skip-subscription';
 
 @Controller('api/auth')
 export class AuthController {
@@ -20,6 +21,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Public()
   @Post('login')
+  @SkipSubscriptionCheck()
   login(@Body() data: LoginDto) {
     console.log('log', data);
     return this.authService.signIn(data);
@@ -88,6 +90,7 @@ export class AuthController {
   // }
 
   @Post('logout')
+  @SkipSubscriptionCheck()
   loginout(
     @Headers('Authorization') authorizationHeader: string,
     @Body('deviceToken') deviceToken?: string,

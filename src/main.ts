@@ -37,6 +37,7 @@ import { Transport, MicroserviceOptions } from '@nestjs/microservices';
 import { AppModule } from './app.module';
 import { AuthGuard } from './auth/auth.guard';
 import { ValidationPipe } from '@nestjs/common';
+import { SubscriptionGuard } from './subscription/subscription-guard';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -52,6 +53,9 @@ async function bootstrap() {
 
   // Global Auth Guard
   app.useGlobalGuards(app.get(AuthGuard));
+
+  //subscription guard
+  app.useGlobalGuards(app.get(SubscriptionGuard));
 
   // RabbitMQ microservice listener ချိတ်ပါ (import_progress event လက်ခံဖို့)
   app.connectMicroservice<MicroserviceOptions>({
