@@ -19,15 +19,20 @@ export class CategoryController {
   @Post()
   create(@Req() req, @Body() createCategoryDto: CreateCategoryDto) {
     console.log('req user is ', req);
-    const { id, email, phone, role } = req.user;
-    return this.categoryService.create(createCategoryDto, id);
+    const { id, email, phone, role, companyId, branchId } = req.user;
+    return this.categoryService.create(
+      createCategoryDto,
+      id,
+      companyId,
+      branchId,
+    );
   }
 
   @Get()
   findAll(@Req() req) {
-    // console.log('req user is ', req);
-    const { id } = req.user;
-    return this.categoryService.findAll(id);
+    console.log('req user is ', req.user);
+    const { id, companyId } = req.user;
+    return this.categoryService.findAll(id, companyId);
   }
 
   @Get(':id')

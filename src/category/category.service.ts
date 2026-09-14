@@ -13,12 +13,19 @@ export class CategoryService {
   constructor(private readonly prisma: PrismaService) {}
 
   // CREATE
-  async create(dto: CreateCategoryDto, userId: number) {
+  async create(
+    dto: CreateCategoryDto,
+    userId: number,
+    companyId: number,
+    branchId?: number,
+  ) {
     try {
       const category = await this.prisma.category.create({
         data: {
           title: dto.title,
           userId,
+          ...(companyId && { companyId }),
+          ...(branchId && { branchId }),
         },
       });
 
@@ -45,10 +52,11 @@ export class CategoryService {
   }
 
   // FIND ALL + SEARCH BY NAME
-  async findAll(userId: number, search?: string) {
+  async findAll(userId: number, companyId: number, search?: string) {
     const categories = await this.prisma.category.findMany({
       where: {
         //userId,
+        ...(companyId && { companyId }),
         ...(search && {
           title: {
             contains: search,

@@ -16,6 +16,8 @@ import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FileUpload } from 'src/utils/file-upload';
+import { SkipSubscriptionCheck } from 'src/utils/skip-subscription';
+import { Public } from 'src/utils/public';
 // import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('api/v1/companies')
@@ -26,6 +28,8 @@ export class CompanyController {
   ) {}
 
   // ===== CREATE COMPANY =====
+  @SkipSubscriptionCheck()
+  @Public()
   @Post()
   @UseInterceptors(FileInterceptor('photoUrl')) // optional photo upload
   create(

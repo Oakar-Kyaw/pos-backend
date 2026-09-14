@@ -165,6 +165,9 @@ export class UserService {
       const users = await this.prisma.user.findMany({
         where,
         orderBy: { id: 'desc' },
+        include: {
+          company: true,
+        },
       });
 
       return {

@@ -7,7 +7,7 @@ import { PrismaService } from 'prisma/prisma.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { hashedPassword } from 'src/utils/hash-password';
-import { AccountType } from '@prisma/client';
+import { AccountType, Role } from '@prisma/client';
 
 @Injectable()
 export class CompanyService {
@@ -36,9 +36,11 @@ export class CompanyService {
     const { password, ...data } = createCompanyDto;
     const hashPassword = await hashedPassword(password);
     const result = await this.prisma.$transaction(async (tx) => {
+      // 5 day subscription
       const company = await tx.company.create({
         data: {
           ...data,
+          subscriptionEndDate: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
         },
       });
 
@@ -48,13 +50,13 @@ export class CompanyService {
           companyId: company.id,
           password: hashPassword,
           phone: company.phone,
-          role: 'POS',
+          role: Role.ADMIN,
         },
       });
 
       const cashAccount = await tx.paymentData.create({
         data: {
-          accountName: `${company.name} CASH`,
+          accountName: `CASH`,
           accountType: AccountType.CASH,
           userId: Number(user.id),
           companyId: Number(company.id),

@@ -77,6 +77,7 @@ export class ProductWorkerService {
             minStock: row['minStock'],
             stock: Number(row['stock'] ?? 0),
             costPrice: row['costPrice'],
+            avgCostPrice: row['costPrice'] ?? 0,
             companyId,
             userId,
           })),

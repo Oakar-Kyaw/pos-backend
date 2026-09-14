@@ -207,6 +207,7 @@ model Branch {
   suppliers  Supplier[]
   purchases  Purchase[]
   customers  Customer[]
+  category   Category[]
 
   @@index([companyId])
 }
@@ -218,6 +219,13 @@ model Category {
 
   userId Int
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  companyId Int?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  branchId Int?
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
 
   products Product[]
 
@@ -261,6 +269,7 @@ model Company {
   purchases           Purchase[]
   suppliers           Supplier[]
   customers           Customer[]
+  category            Category[]
   subscriptionEndDate DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt @default(now())
