@@ -119,6 +119,64 @@ export class SaleReportService {
     });
   }
 
+  // ======================================================
+  // SET FIRST OPENING AMOUNT
+  // ======================================================
+
+  async setFirstOpeningAmountCompany(
+    date: string,
+    amount: number,
+    userId: number,
+    companyId: number,
+    branchId?: number,
+  ) {
+    // 1️⃣ Validate user exists
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Sale user not found');
+    }
+
+    // 2️⃣ CRITICAL — company/branch
+    const existingAny = await this.prisma.saleReport.findFirst({
+      where: {
+        isDeleted: false,
+        companyId,
+        ...(branchId && { branchId }),
+      },
+    });
+
+    if (existingAny) {
+      throw new BadRequestException(
+        'Opening/closing records already exist for this company. Use the normal closing flow instead.',
+      );
+    }
+
+    const openingDate = new Date(date);
+
+    // 3️⃣ Opening balance
+    const opening = await this.prisma.saleReport.create({
+      data: {
+        saleUser: { connect: { id: userId } },
+        company: { connect: { id: companyId } },
+        ...(branchId && { branch: { connect: { id: branchId } } }),
+        date: openingDate,
+        type: TransactionType.OPENING_BALANCE,
+        isClosed: false,
+        amount: new Prisma.Decimal(amount),
+        description: 'First opening balance for this company',
+      },
+    });
+
+    return {
+      success: true,
+      message: 'First opening balance set successfully',
+      data: opening,
+    };
+  }
+
   async findAll(
     userId: number,
     companyId: number,
@@ -252,6 +310,15 @@ export class SaleReportService {
       },
     });
 
+    //5 get any of the data of opening and closing amount
+    const existAnyOpeningAndClosing = await this.prisma.saleReport.findFirst({
+      where: {
+        isDeleted: false,
+        companyId,
+        ...(branchId && { branchId }),
+      },
+    });
+
     // Total transfer amount (info/display purposes — all types)
     const totalTransferAmount = transfers.reduce(
       (sum, t) => sum.plus(t.amount),
@@ -298,6 +365,7 @@ export class SaleReportService {
         openingAmount,
         closingAmount,
         isClosed: !!closingRecord,
+        existAnyOpeningAndClosing: existAnyOpeningAndClosing != null,
       },
     };
   }

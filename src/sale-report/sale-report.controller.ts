@@ -32,6 +32,25 @@ export class SaleReportController {
     );
   }
 
+  @Post('first-opening-amount')
+  async setFirstOpeningAmountCompany(
+    @Body() dto: { date: string; amount: number },
+    @Req() req: any,
+  ) {
+    const userId = req.user.id;
+    const companyId = req.user.companyId;
+    const branchId = req.user.branchId;
+    console.log('first and open amoutn', dto);
+
+    return this.saleReportService.setFirstOpeningAmountCompany(
+      dto.date,
+      dto.amount,
+      userId,
+      companyId,
+      branchId,
+    );
+  }
+
   @Get()
   findAll(
     @Req() req,
