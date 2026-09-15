@@ -33,7 +33,7 @@ export class ProductService {
     photoUrl?: string,
   ) {
     try {
-      // console.log('dto is ', dto, companyId);
+      console.log('dto is ', dto, companyId);
       const product = await this.prisma.$transaction(async (tx) => {
         const data = await tx.product.create({
           data: {
@@ -49,7 +49,7 @@ export class ProductService {
             vvipSellingPrice: Number(dto.vvipSellingPrice),
             stock: Number(dto.stock),
             minStock: Number(dto.minStock),
-            categoryId: Number(dto.categoryId),
+            ...(dto.categoryId && { categoryId: Number(dto.categoryId) }),
             userId: Number(userId),
             companyId: Number(companyId),
             ...{ photoUrl },
@@ -61,7 +61,7 @@ export class ProductService {
             restockQty: Number(dto.stock),
             costPrice: Number(dto.costPrice),
             avgCostPrice: Number(dto.costPrice),
-            productId: Number(product.id),
+            productId: Number(data.id),
           },
         });
 
