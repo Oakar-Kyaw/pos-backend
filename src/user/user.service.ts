@@ -52,6 +52,7 @@ export class UserService {
       const createdUser = await tx.user.create({
         data: {
           ...createUserDto,
+          role: createUserDto.role ? (createUserDto.role as Role) : Role.SALE,
           branchId,
           companyId,
           password: hashPassword,

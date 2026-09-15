@@ -23,58 +23,78 @@ export class SubscriptionGuard implements CanActivate {
       SKIP_SUBSCRIPTION_CHECK,
       [context.getHandler(), context.getClass()],
     );
+
     if (skip) return true;
 
     const request = context.switchToHttp().getRequest();
     const user = request.user;
-    let subscriptionEndDate;
-    let isTrial = false;
 
-    // AuthGuard က user ကို populate မလုပ်သေးရင် (public route) skip
     if (!user?.companyId) {
       return true;
     }
 
-    const checkCacheExist = await this.redisService.get(
-      `${process.env['redis_subscription_key']}:${user.companyId}`,
-    );
-    const checkTrail = await this.redisService.get(
-      `${process.env['redis_subscription_key']}:${user.companyId}:isTrail`,
-    );
+    const subscriptionKey = `${process.env['redis_subscription_key']}:${user.companyId}`;
+    const trialKey = `${subscriptionKey}:isTrail`;
 
-    if (checkCacheExist || checkTrail) {
-      console.log('exist', checkCacheExist, checkTrail);
-      subscriptionEndDate = checkCacheExist;
-      isTrial = Boolean(checkTrail);
+    const [checkCacheExist, checkTrial] = await Promise.all([
+      this.redisService.get(subscriptionKey),
+      this.redisService.get(trialKey),
+    ]);
+
+    let subscriptionEndDate: Date;
+    let isTrial = false;
+
+    console.log('Redis subscription:', checkCacheExist);
+    console.log('Redis trial:', checkTrial);
+
+    if (typeof checkCacheExist === 'string' && typeof checkTrial === 'string') {
+      subscriptionEndDate = new Date(checkCacheExist);
+
+      isTrial = checkTrial === 'true' || checkTrial === '1';
     } else {
       const company = await this.prisma.company.findUnique({
-        where: { id: user.companyId },
-        select: { id: true, isTrial: true, subscriptionEndDate: true },
+        where: {
+          id: user.companyId,
+        },
+        select: {
+          id: true,
+          isTrial: true,
+          subscriptionEndDate: true,
+        },
       });
 
       if (!company) {
         throw new ForbiddenException('Company not found');
       }
+
       if (!company.subscriptionEndDate) {
         throw new ForbiddenException(
           'No active subscription found. Please subscribe to continue.',
         );
       }
+
       subscriptionEndDate = company.subscriptionEndDate;
       isTrial = company.isTrial;
-      await this.redisService.set(
-        `${process.env['redis_subscription_key']}:${user.companyId}`,
-        subscriptionEndDate,
-        3600,
-      );
-      await this.redisService.set(
-        `${process.env['redis_subscription_key']}:${user.companyId}:isTrail`,
-        company.isTrial,
-        3600,
+
+      await Promise.all([
+        this.redisService.set(
+          subscriptionKey,
+          subscriptionEndDate.toISOString(),
+          3600,
+        ),
+        this.redisService.set(trialKey, String(isTrial), 3600),
+      ]);
+    }
+
+    console.log('subscriptionEndDate:', subscriptionEndDate);
+    console.log('isTrial:', isTrial);
+    if (!subscriptionEndDate) {
+      throw new ForbiddenException(
+        'No active subscription found. Please subscribe to continue.',
       );
     }
-    console.log('trail period', subscriptionEndDate, isTrial);
-    if (new Date(subscriptionEndDate) < new Date()) {
+
+    if (subscriptionEndDate < new Date()) {
       throw new ForbiddenException(
         isTrial
           ? 'Your trial period has expired. Please subscribe to continue.'

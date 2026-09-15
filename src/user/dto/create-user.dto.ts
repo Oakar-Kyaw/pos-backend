@@ -1,3 +1,4 @@
+import { Role } from '@prisma/client';
 import { Transform, Expose } from 'class-transformer';
 import {
   IsEmail,
@@ -38,6 +39,14 @@ export class CreateUserDto {
   @IsString()
   @Transform(({ value }) => (value ? String(value).trim() : null))
   readonly lastName?: string;
+
+  @Expose()
+  @IsNotEmpty()
+  @IsEnum(Role)
+  @Transform(({ value }) =>
+    value ? String(value).trim().toUpperCase() : Role.SALE,
+  )
+  readonly role: string;
 
   @Expose()
   @IsNotEmpty()
@@ -133,12 +142,10 @@ export class CreateUserDto {
 
   @Expose()
   @IsOptional()
-  @IsDate()
   startTime?: string;
 
   @Expose()
   @IsOptional()
-  @IsDate()
   endTime?: string;
 
   @Expose()
