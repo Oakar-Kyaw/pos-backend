@@ -6,7 +6,11 @@ import { NotificationService } from './notification/notification.service';
 import { title } from 'process';
 import { NotificationText } from './i18n/notification-language';
 import { PrismaService } from 'prisma/prisma.service';
-import { Role } from '@prisma/client';
+import {
+  NotificationNavigationType,
+  NotificationType,
+  Role,
+} from '@prisma/client';
 
 @Injectable()
 export class NotificationWorkerService {
@@ -61,10 +65,12 @@ export class NotificationWorkerService {
     userId,
     items,
     language,
+    branchId,
   }: {
     userId: number;
     items: LowStockItems[];
     language: string;
+    branchId?: number;
   }) {
     if (items.length === 0) {
       return { success: true, message: 'No low stock items', results: [] };
@@ -134,6 +140,26 @@ export class NotificationWorkerService {
     const results =
       await this.notificationService.sendMultipleNotifications(messages);
 
+    // 4. Save Notification in DB
+    const notification = await this.prisma.notification.create({
+      data: {
+        title,
+        message: 'Your Products are getting low',
+        type: NotificationType.WARNING,
+        navigationType: NotificationNavigationType.LOW_STOCK,
+        ...(branchId && { branchId: Number(branchId) }),
+
+        data: {
+          itemCount: items.length,
+          items: items.map((i) => ({
+            id: i.id,
+            name: i.name,
+            currentStock: i.stock,
+            minStock: i.minStock,
+          })),
+        },
+      },
+    });
     return {
       success: results.results?.every((r) => r.success) ?? false,
       message: results.message,

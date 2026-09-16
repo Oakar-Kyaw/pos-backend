@@ -221,6 +221,7 @@ export class VouchersService {
     if (lowStockItems.length > 0) {
       this.notificationClient.emit('send_low_stock_alert_push_notification', {
         userId,
+        branchId,
         items: lowStockItems,
         language,
       });
@@ -494,6 +495,22 @@ export class VouchersService {
     if (!(isAdmin(role) || isManager(role)))
       throw new UnauthorizedException("Voucher can't be deleted");
     await this.findOne(id);
+
+    // ================================================
+    // REPAY EXISTS GUARD
+    // ================================================
+    const existingRepay = await this.prisma.repay.findFirst({
+      where: {
+        voucherId: id,
+      },
+    });
+
+    if (existingRepay) {
+      throw new ForbiddenException(
+        'Cannot delete this voucher because it already has repayment records. Please delete the repayments first.',
+      );
+    }
+
     const deleted = await this.prisma.$transaction(async (tx) => {
       const data = await tx.voucher.update({
         where: { id },
@@ -669,6 +686,7 @@ export class VouchersService {
   }
 
   // ================= FIND ALL REPAYMENTS =================
+  // ================= FIND ALL REPAYMENTS =================
   async findAllRepayment(
     userId: number,
     companyId: number,
@@ -677,9 +695,21 @@ export class VouchersService {
     limit = 10,
     search?: string,
     voucherId?: number,
+    startDate?: Date,
+    endDate?: Date,
   ) {
     const page = pageNumber < 1 ? 1 : pageNumber;
     const skip = (page - 1) * limit;
+
+    // ================================================
+    // 👇 date range logic — findAll() ရဲ့ pattern အတိုင်း
+    // ================================================
+    const today = new Date();
+    endDate = endDate ? new Date(endDate) : today;
+
+    if (startDate && startDate > endDate) {
+      startDate = endDate;
+    }
 
     let parsedDate: Date | null = null;
     let isValidDate = false;
@@ -698,6 +728,16 @@ export class VouchersService {
       companyId,
       ...(branchId && { branchId }),
       ...(voucherId && { voucherId }),
+
+      // 👇 date range filter ထည့်ထားတယ် — findAll() ရဲ့ createdAt logic အတိုင်း
+      ...(startDate && endDate
+        ? {
+            createdAt: {
+              gte: new Date(startDate),
+              lt: new Date(endDate.getTime() + 24 * 60 * 60 * 1000),
+            },
+          }
+        : {}),
 
       ...(search && {
         OR: [
@@ -723,7 +763,7 @@ export class VouchersService {
       }),
     };
 
-    // 🔍 If searching → no pagination (like your voucher logic)
+    // 🔍 If searching → no pagination (ရှိပြီးသား logic မပြောင်းထားပါ)
     if (search) {
       const repays = await this.prisma.repay.findMany({
         where,
@@ -760,7 +800,7 @@ export class VouchersService {
       };
     }
 
-    // 📄 Normal pagination
+    // 📄 Normal pagination (ရှိပြီးသား logic မပြောင်းထားပါ)
     const [repays, total] = await Promise.all([
       this.prisma.repay.findMany({
         where,

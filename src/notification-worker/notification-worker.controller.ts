@@ -49,6 +49,7 @@ export class NotificationWorkerController {
     const channel = context.getChannelRef();
     const originalMsg = context.getMessage();
     const userId = Number(data['userId']);
+    const branchId = Number(data['branchId']);
     const items = Array.isArray(data['items'])
       ? data['items']
       : [...data['items']];
@@ -59,8 +60,9 @@ export class NotificationWorkerController {
         userId,
         items,
         language,
+        branchId,
       });
-      channel.ack(originalMsg); // success ဖြစ်ရင် ack
+      channel.ack(originalMsg);
     } catch (error) {
       console.error('Failed to process notification:', error);
       channel.ack(originalMsg); // fail ဖြစ်လည်း ack (retry loop မဖြစ်အောင်)

@@ -130,7 +130,9 @@ export class VouchersController {
     @Query('page') page = '1',
     @Query('limit') limit = '10',
     @Query('search') search?: string,
-    @Query('existDebt') existDebt?: boolean,
+    @Query('voucherId') voucherId?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ) {
     const { id: userId, companyId, branchId } = req.user;
 
@@ -141,6 +143,9 @@ export class VouchersController {
       Number(page),
       Number(limit),
       search,
+      voucherId ? Number(voucherId) : undefined,
+      startDate ? new Date(startDate) : undefined,
+      endDate ? new Date(endDate) : undefined,
     );
   }
 }
