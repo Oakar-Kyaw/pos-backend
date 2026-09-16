@@ -145,7 +145,7 @@ export class NotificationWorkerService {
     // 4. Save Notification in DB
     const notification = await this.prisma.notification.create({
       data: {
-        title,
+        title: 'Low Stock Alert',
         message: 'Your Products are getting low',
         type: NotificationType.WARNING,
         navigationType: NotificationNavigationType.LOW_STOCK,
