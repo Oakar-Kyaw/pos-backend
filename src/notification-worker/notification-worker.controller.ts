@@ -50,6 +50,7 @@ export class NotificationWorkerController {
     const originalMsg = context.getMessage();
     const userId = Number(data['userId']);
     const branchId = Number(data['branchId']);
+    const companyId = Number(data['companyId']);
     const items = Array.isArray(data['items'])
       ? data['items']
       : [...data['items']];
@@ -60,6 +61,7 @@ export class NotificationWorkerController {
         userId,
         items,
         language,
+        companyId,
         branchId,
       });
       channel.ack(originalMsg);

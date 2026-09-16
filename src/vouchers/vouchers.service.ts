@@ -221,6 +221,7 @@ export class VouchersService {
     if (lowStockItems.length > 0) {
       this.notificationClient.emit('send_low_stock_alert_push_notification', {
         userId,
+        companyId,
         branchId,
         items: lowStockItems,
         language,

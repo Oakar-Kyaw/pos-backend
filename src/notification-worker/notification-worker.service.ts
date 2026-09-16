@@ -65,11 +65,13 @@ export class NotificationWorkerService {
     userId,
     items,
     language,
+    companyId,
     branchId,
   }: {
     userId: number;
     items: LowStockItems[];
     language: string;
+    companyId?: number;
     branchId?: number;
   }) {
     if (items.length === 0) {
@@ -148,6 +150,7 @@ export class NotificationWorkerService {
         type: NotificationType.WARNING,
         navigationType: NotificationNavigationType.LOW_STOCK,
         ...(branchId && { branchId: Number(branchId) }),
+        ...(companyId && { companyId: Number(companyId) }),
 
         data: {
           itemCount: items.length,
