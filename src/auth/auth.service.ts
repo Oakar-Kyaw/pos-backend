@@ -154,7 +154,7 @@ export class AuthService {
       email: payload.email,
     });
 
-    console.log('👤 Looking up user by ID:', payload.id);
+    console.log('👤 Refresh Token Looking up user by ID:', payload.id);
     // const { success, message, data } = await firstValueFrom(
     //       this.userClient.send({cmd: 'get_user_by_id'}, { id: payload.id })
     //   );
