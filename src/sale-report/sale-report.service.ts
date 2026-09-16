@@ -254,11 +254,14 @@ export class SaleReportService {
     if (!date) {
       throw new BadRequestException('date is required');
     }
+    const now = date ? new Date(date) : new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const day = now.getDate();
 
-    const dateOnly = date.slice(0, 10);
-    const timezone = 'Asia/Yangon';
-    const startOfDay = fromZonedTime(`${dateOnly}T00:00:00.000`, timezone);
-    const endOfDay = fromZonedTime(`${dateOnly}T23:59:59.999`, timezone);
+    // 1. Daily UTC Boundaries
+    const startOfDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+    const endOfDay = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
 
     // 1 Income summary (sale, purchase, expense, debt, refund, repay)
     const result = await this.income.getTotalByDateAndBranchAndCompany(
