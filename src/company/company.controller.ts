@@ -28,9 +28,9 @@ export class CompanyController {
   ) {}
 
   // ===== CREATE COMPANY =====
+  @Post()
   @Public()
   @SkipSubscriptionCheck()
-  @Post()
   @UseInterceptors(FileInterceptor('photoUrl')) // optional photo upload
   create(
     @Body() createCompanyDto: CreateCompanyDto,

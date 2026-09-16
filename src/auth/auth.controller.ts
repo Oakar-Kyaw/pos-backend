@@ -18,9 +18,9 @@ import { SkipSubscriptionCheck } from 'src/utils/skip-subscription';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Post('login')
   @Public()
   @SkipSubscriptionCheck()
-  @Post('login')
   login(@Body() data: LoginDto) {
     console.log('log', data);
     return this.authService.signIn(data);
