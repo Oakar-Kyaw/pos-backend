@@ -67,8 +67,7 @@ export class NotificationWorkerController {
       channel.ack(originalMsg);
     } catch (error) {
       console.error('Failed to process notification:', error);
-      channel.ack(originalMsg); // fail ဖြစ်လည်း ack (retry loop မဖြစ်အောင်)
-      // သို့မဟုတ် channel.nack(originalMsg, false, false); ← DLQ ပို့ချင်ရင်
+      channel.ack(originalMsg);
     }
   }
 }
