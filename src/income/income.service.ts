@@ -18,25 +18,23 @@ export class IncomeService {
     date?: string,
   ) {
     const now = date ? new Date(date) : new Date();
-    const startOfDay = new Date(
-      Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0),
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const day = now.getDate();
+
+    // 1. Daily UTC Boundaries
+    const startOfDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+    const endOfDay = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
+
+    // 2. Monthly UTC Boundaries (Fix)
+    const thisMonth = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
+    const thisEndMonth = new Date(
+      Date.UTC(year, month + 1, 0, 23, 59, 59, 999),
     );
-    const endOfDay = new Date(
-      Date.UTC(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        23,
-        59,
-        59,
-        999,
-      ),
-    );
-    // console.log('now', now, endOfDay);
-    const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const thisEndMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const startYear = new Date(now.getFullYear(), 0, 1);
-    const endYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+
+    // 3. Yearly UTC Boundaries (Fix)
+    const startYear = new Date(Date.UTC(year, 0, 1, 0, 0, 0, 0));
+    const endYear = new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999));
     // console.log(startYear, endYear, thisMonth);
     const yearlySale = await this.getTotalByDateAndBranchAndCompany(
       companyId,
@@ -87,6 +85,7 @@ export class IncomeService {
       startYear,
       endYear,
     );
+    console.log('todya sale ', yearlySale);
     const data = {
       yearlySale: {
         total: yearlySale[0].total,
@@ -98,6 +97,7 @@ export class IncomeService {
         discountPercent: yearlySale[0].discountPercent,
         refundAmount: yearlySale[0].refundAmount,
         debtAmount: yearlySale[0].debtAmount,
+        repayAmount: yearlySale[0].repayIn,
         expenseAmount: yearlySale[0].expenseAmount,
         purchaseAmount: yearlySale[0].purchaseAmount,
         netIncome: yearlySale[0].netIncome,
@@ -113,6 +113,7 @@ export class IncomeService {
         packagingFee: monthlySale[0].packagingFee,
         discountAmount: monthlySale[0].discountAmount,
         discountPercent: monthlySale[0].discountPercent,
+        repayAmount: monthlySale[0].repayIn,
         refundAmount: monthlySale[0].refundAmount,
         debtAmount: monthlySale[0].debtAmount,
         expenseAmount: monthlySale[0].expenseAmount,
@@ -126,7 +127,10 @@ export class IncomeService {
       leastSellingItem,
       getMonthByMonth,
       getMonthlyTopSaleUser,
-      getTodaySale: getTodaySale[0],
+      getTodaySale: {
+        ...getTodaySale[0],
+        repayAmount: getTodaySale[0].repayIn,
+      },
     };
     // console.log('get dta sale is ', data);
     return {
@@ -537,15 +541,15 @@ export class IncomeService {
       : Prisma.empty;
 
     const paymentInSql = Prisma.sql`COALESCE((
-    SELECT SUM(p."amount")
-    FROM "Payment" p
-    INNER JOIN "Voucher" v ON p."voucherId" = v."id"
-    WHERE v."companyId" = ${companyId}
-      AND v."isDeleted" = FALSE
-      AND p."createdAt" >= ${startDate}
-      AND p."createdAt" < ${endDate}
-      ${voucherBranch}
-  ), 0)`;
+        SELECT SUM(p."amount")
+        FROM "Payment" p
+        INNER JOIN "Voucher" v ON p."voucherId" = v."id"
+        WHERE v."companyId" = ${companyId}
+          AND v."isDeleted" = FALSE
+          AND p."createdAt" >= ${startDate}
+          AND p."createdAt" < ${endDate}
+          ${voucherBranch}
+      ), 0)`;
 
     const repayInSql = Prisma.sql`COALESCE((
     SELECT SUM(r."amount")
@@ -555,6 +559,15 @@ export class IncomeService {
       AND r."createdAt" < ${endDate}
       ${repayBranch}
   ), 0)`;
+    console.log(
+      'repayment date ',
+      startDate,
+      endDate,
+      'branch',
+      branchId,
+      'company',
+      companyId,
+    );
 
     const refundOutSql = Prisma.sql`COALESCE((
     SELECT SUM(rp."amount")
@@ -656,10 +669,13 @@ export class IncomeService {
         ${refundOutSql} AS "refundAmount",
         ${purchaseOutSql} AS "purchaseAmount",
         ${expenseOutSql} AS "expenseAmount",
-        (vv."total" - (${paymentInSql} + ${repayInSql})) AS "debtAmount",
+        GREATEST(0, (vv."total" - (${paymentInSql} + ${repayInSql}))) AS "debtAmount",
         ((${paymentInSql} + ${repayInSql} ) - ${refundOutSql} - ${purchaseOutSql} - ${expenseOutSql} ) AS "netIncome"
       FROM (${voucherValueSql}) vv
     `,
+    );
+    console.log(
+      `[${startDate.toISOString()} → ${endDate.toISOString()}] repayIn: ${result[0].repayIn}`,
     );
 
     return result;
