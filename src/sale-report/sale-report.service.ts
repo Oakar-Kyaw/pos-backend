@@ -270,6 +270,7 @@ export class SaleReportService {
       endOfDay,
       branchId,
     );
+    //today sale
     const todaySaleData = result[0];
 
     const totalGeneralExpense = todaySaleData.expenseAmount;
