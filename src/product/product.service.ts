@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -80,14 +81,10 @@ export class ProductService {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
-        return {
-          success: false,
-          message: 'Product code or barcode already exists',
-          data: null,
-        };
+        throw new BadRequestException('Code already exists');
       }
 
-      throw new ForbiddenException('Unable to create product');
+      throw new BadRequestException('Unable to create product');
     }
   }
 
@@ -105,7 +102,7 @@ export class ProductService {
         category: true;
       };
     }>;
-
+    console.log('search ', search, page, limit);
     let products: ProductWithCategory[] = [];
     let total = 0;
     const where: Prisma.ProductWhereInput = {
