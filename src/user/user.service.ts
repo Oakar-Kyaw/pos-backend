@@ -1,13 +1,15 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as firebaseAdmin from 'firebase-admin';
-import { hashedPassword } from 'src/utils/hash-password';
+import { comparePassword, hashedPassword } from 'src/utils/hash-password';
 import { OAuth2Client } from 'google-auth-library';
 import { google } from 'googleapis';
 import { PrismaService } from 'prisma/prisma.service';
@@ -391,35 +393,36 @@ export class UserService {
     };
   }
 
-  async remove(id: number) {
+  async remove(id: number, password: string) {
+    console.log('id is passowrd', id, password);
     const userExists = await this.prisma.user.findUnique({
       where: { id },
     });
 
     if (!userExists) {
-      throw new NotFoundException(`User with ID ${id} not found`);
+      throw new NotFoundException('User with ID ${id} not found');
+    }
+
+    const passwordComparison = await comparePassword(
+      password,
+      userExists.password,
+    );
+
+    if (!passwordComparison) {
+      throw new BadRequestException('Password was wrong.');
     }
 
     return this.prisma.$transaction(async (prisma) => {
-      // Delete brand user relationships
-      // Finally, soft-delete the user itself
       const deletedUser = await prisma.user.update({
         where: { id },
-        data: { isDeleted: true },
+        data: {
+          isDeleted: true,
+        },
       });
-      // await publishEvent(EVENTS.USER_EVENT, {
-      //   type: TYPES.DELETED_USER,
-      //   id: deletedUser.id,
-      //   email: deletedUser.email,
-      //   phone: deletedUser.phone,
-      //   role: deletedUser.role ?? 'CUSTOMER',
-      //   password: deletedUser.password ?? null,
-      // });
 
       return {
         success: true,
         message: 'DELETE_USER_BY_ID',
-        data: deletedUser,
       };
     });
   }
@@ -608,17 +611,17 @@ export class UserService {
     };
   }
 
-  async removeByEmail(email: string) {
-    const user = await this.prisma.user.findFirst({
-      where: { email },
-    });
+  // async removeByEmail(email: string) {
+  //   const user = await this.prisma.user.findFirst({
+  //     where: { email },
+  //   });
 
-    if (!user) {
-      throw new NotFoundException(`User with email ${email} not found`);
-    }
+  //   if (!user) {
+  //     throw new NotFoundException(`User with email ${email} not found`);
+  //   }
 
-    return this.remove(user.id);
-  }
+  //   return this.remove(user.id, password);
+  // }
 
   // async syncDeviceToken(dto: SyncDeviceTokenDto) {
   //   const { userId, deviceToken, action, deviceInfo } = dto;

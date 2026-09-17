@@ -110,9 +110,10 @@ export class UserController {
     return this.userService.update(id, updateUserWithProfileDto, imageUrl);
   }
 
-  @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.userService.remove(id);
+  @Delete('')
+  remove(@Req() req, @Body('password') password: string) {
+    const { id: userId, companyId, branchId } = req.user;
+    return this.userService.remove(userId, password);
   }
 
   @Post('register/facebook/mobile')
