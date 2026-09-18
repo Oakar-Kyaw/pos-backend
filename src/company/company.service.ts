@@ -33,8 +33,10 @@ export class CompanyService {
         'Company with this email, name, or phone already exists',
       );
     }
+
     const { password, ...data } = createCompanyDto;
     const hashPassword = await hashedPassword(password);
+
     const result = await this.prisma.$transaction(async (tx) => {
       // 5 day subscription
       const company = await tx.company.create({
@@ -65,14 +67,35 @@ export class CompanyService {
 
       return { company, user, cashAccount };
     });
+    // Serverless ဆိုရင် response ပြန်ပို့ပြီးတာနဲ့ process ကို kill/freeze လုပ်ပစ်တတ်လို့ await မထားတဲ့ background call (Telegram) က ပြီးအောင် မပြေးရသေးဘဲ silent ဖြစ်နိုင်ပါတယ် — ဒါပေမယ့် Lightsail/EC2 လို traditional server မှာတော့ ဒီပြဿနာ မရှိပါဘူး။
+    this.sendTelegramNotification(result.company).catch((err) =>
+      console.error('Telegram notification error:', err.message),
+    );
 
-    console.log('company:', result.company);
-    console.log('user:', result.user);
     return {
       success: true,
       message: 'COMPANY CREATED',
       data: result.company,
     };
+  }
+
+  private async sendTelegramNotification(company: any) {
+    const botMessageUrl = process.env.TELEGRAM_BOT_SEND_MESSAGE_URL;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+
+    if (!botMessageUrl || !chatId) return;
+
+    const message = `🎉 **Company အသစ်ရောက်ရှိပါပြီ!**\n\n🏢 **Name:** ${company.name}\n📧 **Email:** ${company.email}\n📞 **Phone:** ${company.phone || 'N/A'}\n🆔 **ID:** ${company.id}`;
+
+    await fetch(botMessageUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: message,
+        parse_mode: 'Markdown',
+      }),
+    });
   }
 
   // -------- Get All Companies --------
