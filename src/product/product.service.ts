@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   ForbiddenException,
-  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -17,6 +16,7 @@ import {
 import type { Cache } from 'cache-manager';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from 'src/utils/redis/redis.service';
+
 @Injectable()
 export class ProductService {
   private readonly logger = new Logger(ProductService.name);
@@ -95,6 +95,7 @@ export class ProductService {
     page = 1,
     limit = 10,
     search?: string,
+    categoryId?: number,
   ) {
     const skip = (page - 1) * limit;
     type ProductWithCategory = Prisma.ProductGetPayload<{
@@ -102,11 +103,12 @@ export class ProductService {
         category: true;
       };
     }>;
-    console.log('search ', search, page, limit);
+    console.log('search ', search, page, limit, categoryId);
     let products: ProductWithCategory[] = [];
     let total = 0;
     const where: Prisma.ProductWhereInput = {
       companyId,
+      ...(categoryId && { categoryId: Number(categoryId) }),
       isDeleted: false,
       ...(search && {
         OR: [
@@ -116,39 +118,48 @@ export class ProductService {
         ],
       }),
     };
+
+    // ================================================
+    //categoryId
+    // ================================================
     const { redisKey } = await this.getProductCacheKey({
       companyId,
       skip,
       limit,
+      categoryId,
     });
     const cachedData = await this.redis.get(redisKey);
     console.log('redis key', redisKey);
+
     // If search → return all matches (no pagination)
     if (search) {
-      const products = await this.prisma.product.findMany({
-        where,
-        include: { category: true },
-        orderBy: { name: 'asc' },
-        skip,
-        take: limit,
-      });
+      const [searchProducts, searchTotal] = await Promise.all([
+        this.prisma.product.findMany({
+          where,
+          include: { category: true },
+          orderBy: { name: 'asc' },
+          skip,
+          take: limit,
+        }),
+        this.prisma.product.count({ where }),
+      ]);
 
-      console.log('product search is ', products);
+      console.log('product search is ', searchProducts);
 
       return {
         success: true,
         message: 'Products fetched successfully',
-        data: products,
+        data: searchProducts,
         meta: {
           page,
           limit,
-          total,
-          totalPages: Math.ceil(total / limit),
+          total: searchTotal,
+          totalPages: Math.ceil(searchTotal / limit),
           isSearch: true,
         },
       };
     }
-    // console.log('uncache data are ');
+    console.log('where', where);
     if (!cachedData) {
       const [data, sum] = await Promise.all([
         this.prisma.product.findMany({
@@ -164,12 +175,6 @@ export class ProductService {
       ]);
       const cacheObject = { data, sum };
 
-      // const bytes = Buffer.byteLength(JSON.stringify(cacheObject), 'utf8');
-
-      // this.logger.log(`Cache Size: ${bytes} bytes`);
-      // this.logger.log(`Cache Size: ${(bytes / 1024).toFixed(2)} KB`);
-      // this.logger.log(`Cache Size: ${(bytes / 1024 / 1024).toFixed(2)} MB`);
-
       const ttl = this.configService.get<number>('REDIS_TTL')!;
 
       products = data;
@@ -184,21 +189,9 @@ export class ProductService {
       });
     } else {
       this.logger.log('Cache Exist');
-      //cachedData);
 
       products = cachedData['data'];
       total = cachedData['sum'];
-      // const memory = await this.redis.getClient().memory('USAGE', redisKey);
-
-      // if (memory !== null) {
-      //   this.logger.log(`Redis Memory: ${memory} bytes`);
-      //   this.logger.log(`Redis Memory: ${(memory / 1024).toFixed(2)} KB`);
-      //   this.logger.log(
-      //     `Redis Memory: ${(memory / 1024 / 1024).toFixed(2)} MB`,
-      //   );
-      // } else {
-      //   this.logger.log('Key does not exist in Redis.');
-      // }
     }
     console.log('product are ', skip, limit);
     return {
@@ -459,7 +452,6 @@ export class ProductService {
           (prev, next) => prev + next.price * next.quantity,
           0,
         );
-        //  Create main InventoryLoss record
         const created = await tx.inventoryManagement.create({
           data: {
             type: dto.type,
@@ -472,7 +464,6 @@ export class ProductService {
           },
         });
 
-        // Create InventoryLossItem records
         const itemsData = dto.items.map((item) => ({
           inventoryId: created.id,
           productId: item.productId,
@@ -486,11 +477,7 @@ export class ProductService {
 
         await tx.inventoryItem.createMany({ data: itemsData });
 
-        //only reduce stock when the inventoryType is Expire, Damage
         if (dto.type === 'DAMAGED' || dto.type === 'EXPIRED') {
-          // ======================================================
-          // REDUCED STOCK
-          // ======================================================
           const values = Prisma.join(
             dto.items.map(
               (pr) => Prisma.sql`(${pr.productId}::int, ${pr.quantity}::int)`,
@@ -549,12 +536,6 @@ export class ProductService {
           0,
         );
 
-        // ======================================================
-        // RESTORE OLD STOCK
-        // ======================================================
-        // If the old inventory type was DAMAGED or EXPIRED,
-        // restore the previously deducted stock before applying
-        // the new inventory items.
         if (
           existInventory.type === 'DAMAGED' ||
           existInventory.type === 'EXPIRED'
@@ -578,9 +559,6 @@ export class ProductService {
           }
         }
 
-        // ======================================================
-        // UPDATE MAIN INVENTORY RECORD
-        // ======================================================
         const update = await tx.inventoryManagement.update({
           where: {
             id,
@@ -596,18 +574,12 @@ export class ProductService {
           },
         });
 
-        // ======================================================
-        // DELETE OLD ITEMS
-        // ======================================================
         await tx.inventoryItem.deleteMany({
           where: {
             inventoryId: id,
           },
         });
 
-        // ======================================================
-        // CREATE NEW ITEMS
-        // ======================================================
         if (items.length > 0) {
           const itemsData = items.map((item) => ({
             inventoryId: id,
@@ -625,9 +597,6 @@ export class ProductService {
           });
         }
 
-        // ======================================================
-        // REDUCE STOCK FOR NEW DAMAGED / EXPIRED ITEMS
-        // ======================================================
         if (
           (dto.type === 'DAMAGED' || dto.type === 'EXPIRED') &&
           items.length > 0
@@ -688,9 +657,6 @@ export class ProductService {
         throw new NotFoundException("Inventory Item doesn't exist");
 
       const inventory = await this.prisma.$transaction(async (tx) => {
-        // ======================================================
-        // UPDATE MAIN INVENTORY RECORD
-        // ======================================================
         const update = await tx.inventoryManagement.update({
           where: {
             id,
@@ -735,7 +701,6 @@ export class ProductService {
     const today = new Date();
     endDate = endDate ? new Date(endDate) : today;
 
-    // If startDate is after endDate, reset startDate to endDate
     if (startDate && startDate > endDate) {
       startDate = endDate;
     }
@@ -754,7 +719,6 @@ export class ProductService {
         }),
       };
     }
-    //console.log('type is ', type);
     if (type === 'REQUESTED') {
       where.type = 'REQUESTED';
     } else if (type) {
@@ -783,7 +747,6 @@ export class ProductService {
         where: where,
       }),
     ]);
-    // console.log('inver', inventories[0].items);
     return {
       success: true,
       message: 'Inventory list fetched successfully',
@@ -809,11 +772,7 @@ export class ProductService {
           items: true,
         },
       });
-      //only add restock when the inventoryType is Expire, Damage
       if (data.type === 'DAMAGED' || data.type === 'EXPIRED') {
-        // ======================================================
-        // ADD STOCK
-        // ======================================================
         const values = Prisma.join(
           data.items.map(
             (pr) => Prisma.sql`(${pr.productId}::int, ${pr.quantity}::int)`,
@@ -839,14 +798,19 @@ export class ProductService {
     };
   }
 
+  // ================================================
+  //categoryId parameter
+  // ================================================
   async getProductCacheKey({
     companyId,
     skip,
     limit,
+    categoryId,
   }: {
     companyId: number;
     skip: number;
     limit: number;
+    categoryId?: number;
   }): Promise<{
     redisProductCacheKey: string;
     redisProductCacheVersion: number;
@@ -857,7 +821,10 @@ export class ProductService {
     const redisProductCacheVersion =
       await this.redis.getVersion(redisProductCacheKey);
 
-    const redisKey = `product:${companyId}:v${redisProductCacheVersion}:${skip}:${limit}:all`;
+    // 👇 "all" hardcode အစား categoryId ကို key ထဲ ထည့်ထားတယ်
+    const categoryTag = categoryId ?? 'all';
+
+    const redisKey = `product:${companyId}:v${redisProductCacheVersion}:${skip}:${limit}:${categoryTag}`;
     return { redisProductCacheKey, redisProductCacheVersion, redisKey };
   }
 
@@ -875,10 +842,8 @@ export class ProductService {
     ttl?: number;
   }) {
     await this.redis.set(redisKey, cacheObject, ttl);
-    //await this.redis.increaseVersionNumber(redisProductCacheKey);
 
     const redisPipeline = this.redis.getClient().pipeline();
-    //console.log('redis pipeline is ', redisPipeline);
     console.log(
       '🔧 Pipeline ဆောက်နေတယ်... product id တစ်ခုချင်းစီအတွက် command ထည့်နေတယ်',
     );
@@ -905,7 +870,6 @@ export class ProductService {
   }) {
     const indexKey = `product:${companyId}:page-index:${updatedProduct.id}`;
     console.log(`🔍 ရှာမယ့် index key: ${indexKey}`);
-    // Output: 🔍 ရှာမယ့် index key: product:11:page-index:8
 
     const redisClient = this.redis.getClient();
     const cacheKeys: string[] = await redisClient.smembers(indexKey);
@@ -913,7 +877,6 @@ export class ProductService {
       `📋 Product id ${updatedProduct.id} ရှိတဲ့ page key(များ):`,
       cacheKeys,
     );
-    // Output: 📋 Product id 8 ရှိတဲ့ page key(များ): [ 'product:11:v1:0:20' ]
 
     if (cacheKeys.length === 0) {
       console.log('ဘယ် page မှာမှ cache မရှိသေးဘူး → ဘာမှမလုပ်ဘဲ ရပ်လိုက်တယ်');
@@ -932,13 +895,11 @@ export class ProductService {
         `📂 "${key}" ကို ဖွင့်လိုက်တယ်, အရင် data:`,
         cached['data'].map((p) => ({ id: p.id })),
       );
-      // Output: 📂 "product:11:v1:0:20" ကို ဖွင့်လိုက်တယ်, အရင် data: [ { id: 8, price: 2000 }, { id: 7, price: 400 } ]
 
       const idx = cached['data'].findIndex((p) => p.id === updatedProduct.id);
       console.log(
         `   ↳ Product id ${updatedProduct.id} ကို array index [${idx}] မှာ တွေ့တယ်`,
       );
-      // Output:    ↳ Product id 8 ကို array index [0] မှာ တွေ့တယ်
 
       if (idx === -1) continue;
 
@@ -947,7 +908,6 @@ export class ProductService {
         `✏️ Array ထဲက [${idx}] ကို price အသစ်နဲ့ အစားထိုးပြီး:`,
         cached['data'].map((p) => ({ id: p.id, ...p })),
       );
-      // Output: ✏️ Array ထဲက [0] ကို price အသစ်နဲ့ အစားထိုးပြီး: [ { id: 8, price: 2500 }, { id: 7, price: 400 } ]
 
       await this.redis.set(
         key,
@@ -957,7 +917,6 @@ export class ProductService {
       console.log(
         `💾 "${key}" ကို ပြန် save လုပ်ပြီး — page 2, 3, 4... တို့ကို လုံးဝ မထိခဲ့ဘူး`,
       );
-      // Output: 💾 "product:11:v1:0:20" ကို ပြန် save လုပ်ပြီး — page 2, 3, 4... တို့ကို လုံးဝ မထိခဲ့ဘူး
     }
   }
 
@@ -971,12 +930,8 @@ export class ProductService {
 
     const next = current + 1;
 
-    // Get the actual ioredis client
     const redisClient = this.redis.getClient();
 
-    // Delete all:
-    // product:${companyId}:page-index:*
-    // const pattern = `product:${companyId}:page-index:*`;
     const pattern = `product:*`;
 
     let cursor = '0';
@@ -1000,7 +955,6 @@ export class ProductService {
       }
     } while (cursor !== '0');
 
-    // Delete version key
     await this.redis.del(redisProductCacheKey);
 
     console.log(`🗑️ Deleted ${deletedCount} page-index keys`);

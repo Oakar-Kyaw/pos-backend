@@ -71,15 +71,18 @@ export class ProductController {
     @Query('page') page = '1',
     @Query('limit') limit = '10',
     @Query('search') search?: string,
+    @Query('categoryId') categoryId?: number,
   ) {
     const { id: userId, companyId } = req.user;
 
     return this.productService.findAll(
       userId,
       companyId,
+
       Number(page),
       Number(limit),
       search,
+      categoryId,
     );
   }
 
