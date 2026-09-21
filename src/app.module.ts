@@ -33,6 +33,7 @@ import { CustomerModule } from './customer/customer.module';
 import { SocketGatewaysModule } from './socket-gateways/socket-gateways.module';
 import { NotificationModule } from './notification/notification.module';
 import { SubscriptionGuard } from './subscription/subscription-guard';
+import { BrandModule } from './brand/brand.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -79,6 +80,7 @@ import { SubscriptionGuard } from './subscription/subscription-guard';
     CustomerModule,
     SocketGatewaysModule,
     NotificationModule,
+    BrandModule,
   ],
   controllers: [AppController],
   providers: [AppService, SubscriptionGuard],

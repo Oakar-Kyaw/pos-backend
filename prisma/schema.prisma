@@ -187,6 +187,7 @@ model Branch {
   company   Company @relation(fields: [companyId], references: [id])
 
   products     Product[]
+  brand         Brand[]
 
   saleReports        SaleReport[] @relation("branchfromsalereport")
   transfers          Transfer[]   @relation("branchfromtransfer")
@@ -247,6 +248,7 @@ model Company {
   isTrial   Boolean       @default(true)
   payroll   Payroll[]
 
+  brand       Brand[]
   products           Product[]
   leaves              Leave[]
   vouchers           Voucher[]
@@ -494,6 +496,7 @@ model PaymentData {
   accountType   AccountType
   balance       Decimal @db.Decimal(12, 2) @default(0)
   companyId Int
+  branchId  Int?
   userId    Int
 
   isActive Boolean @default(true)
@@ -650,6 +653,10 @@ model Product {
 
   categoryId Int?
   category   Category? @relation(fields: [categoryId], references: [id])
+
+  brandId Int?
+  brand   Brand? @relation(fields: [brandId], references: [id])
+
 
   userId Int
   user   User @relation(fields: [userId], references: [id])
@@ -1051,6 +1058,7 @@ model User {
   leaves     Leave[]    @relation("leaveUser")
   approvedLeaves  Leave[] @relation("approvedUser")
   subscriptions           Subscription[]
+  brand         Brand[]
   vouchers                Voucher[]
   categories              Category[]
   products                Product[]
@@ -1226,4 +1234,32 @@ model Notification {
   @@index([isRead])
   @@index([navigationType])
   @@index([createdAt])
+}
+
+model Brand {
+  id          Int     @id @default(autoincrement())
+  name        String
+  code        String?
+  logoUrl     String?
+  description String?
+  isDeleted   Boolean @default(false)
+
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  companyId Int
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  branchId  Int?
+  branch    Branch?  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  products  Product[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([userId])
+  @@index([name])
 }
