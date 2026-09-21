@@ -72,6 +72,7 @@ export class ProductController {
     @Query('limit') limit = '10',
     @Query('search') search?: string,
     @Query('categoryId') categoryId?: number,
+    @Query('brandId') brandId?: number,
   ) {
     const { id: userId, companyId } = req.user;
 
@@ -83,6 +84,7 @@ export class ProductController {
       Number(limit),
       search,
       categoryId,
+      brandId,
     );
   }
 

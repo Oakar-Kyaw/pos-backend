@@ -51,6 +51,7 @@ export class ProductService {
             stock: Number(dto.stock),
             minStock: Number(dto.minStock),
             ...(dto.categoryId && { categoryId: Number(dto.categoryId) }),
+            ...(dto.brandId && { brandId: Number(dto.brandId) }),
             userId: Number(userId),
             companyId: Number(companyId),
             ...{ photoUrl },
@@ -96,6 +97,7 @@ export class ProductService {
     limit = 10,
     search?: string,
     categoryId?: number,
+    brandId?: number,
   ) {
     const skip = (page - 1) * limit;
     type ProductWithCategory = Prisma.ProductGetPayload<{
@@ -109,6 +111,7 @@ export class ProductService {
     const where: Prisma.ProductWhereInput = {
       companyId,
       ...(categoryId && { categoryId: Number(categoryId) }),
+      ...(brandId && { brandId: Number(brandId) }),
       isDeleted: false,
       ...(search && {
         OR: [
@@ -127,6 +130,7 @@ export class ProductService {
       skip,
       limit,
       categoryId,
+      brandId,
     });
     const cachedData = await this.redis.get(redisKey);
     console.log('redis key', redisKey);
@@ -136,7 +140,7 @@ export class ProductService {
       const [searchProducts, searchTotal] = await Promise.all([
         this.prisma.product.findMany({
           where,
-          include: { category: true },
+          include: { category: true, brand: true },
           orderBy: { name: 'asc' },
           skip,
           take: limit,
@@ -166,6 +170,7 @@ export class ProductService {
           where,
           include: {
             category: true,
+            brand: true,
           },
           orderBy: { name: 'asc' },
           skip,
@@ -240,6 +245,7 @@ export class ProductService {
         CASE WHEN c.id IS NOT NULL THEN row_to_json(c.*) ELSE NULL END AS category
       FROM "Product" p
       LEFT JOIN "Category" c ON c.id = p."categoryId"
+      LEFT JOIN "Brand" b ON b.id = p."brandId"
       WHERE ${baseWhere}
       ORDER BY p.stock ASC, p.name ASC
       OFFSET ${skip}
@@ -353,6 +359,7 @@ export class ProductService {
           stock: dto.stock,
           minStock: dto.minStock,
           categoryId: dto.categoryId,
+          brandId: dto.brandId,
           isActive: dto.isActive,
           ...{ photoUrl },
         },
@@ -407,11 +414,11 @@ export class ProductService {
 
       return data;
     });
-
-    await this.patchProductInCache({
-      companyId: oldData.data.companyId,
-      updatedProduct: updated,
-    });
+    await this.invalidateProductCache(companyId);
+    // await this.patchProductInCache({
+    //   companyId: oldData.data.companyId,
+    //   updatedProduct: updated,
+    // });
 
     return {
       success: true,
@@ -806,11 +813,13 @@ export class ProductService {
     skip,
     limit,
     categoryId,
+    brandId,
   }: {
     companyId: number;
     skip: number;
     limit: number;
     categoryId?: number;
+    brandId?: number;
   }): Promise<{
     redisProductCacheKey: string;
     redisProductCacheVersion: number;
@@ -824,7 +833,9 @@ export class ProductService {
     // 👇 "all" hardcode အစား categoryId ကို key ထဲ ထည့်ထားတယ်
     const categoryTag = categoryId ?? 'all';
 
-    const redisKey = `product:${companyId}:v${redisProductCacheVersion}:${skip}:${limit}:${categoryTag}`;
+    const brandTag = brandId ?? 'all';
+
+    const redisKey = `product:${companyId}:v${redisProductCacheVersion}:${skip}:${limit}:${categoryTag}:${brandTag}`;
     return { redisProductCacheKey, redisProductCacheVersion, redisKey };
   }
 

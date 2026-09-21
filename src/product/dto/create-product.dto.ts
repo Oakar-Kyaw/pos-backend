@@ -116,4 +116,10 @@ export class CreateProductDto {
   @IsInt()
   @Type(() => Number)
   readonly categoryId: number;
+
+  @Expose()
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  readonly brandId: number;
 }

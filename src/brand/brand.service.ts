@@ -67,6 +67,8 @@ export class BrandService {
       orderBy: { name: 'asc' },
     });
 
+    console.log('brand is ', companyId, brands);
+
     return {
       success: true,
       message: 'Brands fetched successfully',

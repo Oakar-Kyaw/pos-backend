@@ -66,7 +66,7 @@ export class CategoryService {
       },
       orderBy: { title: 'asc' },
     });
-
+    console.log('category is ', companyId, categories);
     return {
       success: true,
       message: 'Categories fetched successfully',
