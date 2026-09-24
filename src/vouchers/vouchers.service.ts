@@ -404,6 +404,15 @@ export class VouchersService {
         isDeleted: false,
       },
       include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+            email: true,
+          },
+        },
         items: {
           include: {
             product: true,
