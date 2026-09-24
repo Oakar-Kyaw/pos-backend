@@ -128,9 +128,18 @@ export class VouchersService {
 
         const updated = rows[0];
         if (updated.stock <= updated.minStock) {
+          let imageUrl = '';
+          if (updated.imageUrl) {
+            try {
+              imageUrl = new URL(updated.imageUrl).toString();
+            } catch {
+              imageUrl = '';
+            }
+          }
+
           lowStockItems.push({
             ...updated,
-            imageUrl: new URL(updated.imageUrl).toString(),
+            imageUrl,
             language,
             userId,
           });
