@@ -701,7 +701,7 @@ export class RefundService {
       // const result =
       await tx.$executeRaw`UPDATE "Product" AS p SET stock = p.stock - v.qty FROM (VALUES ${reduceValues}) AS v(id, qty) WHERE p.id = v.id`;
       //add amount in balance
-      const values: Prisma.Sql[] = deleted.refundPayment.map(
+      const values: Prisma.Sql[] = data.refundPayment.map(
         (payment) => Prisma.sql`(${payment.paymentDataId}, ${payment.amount})`,
       );
 
