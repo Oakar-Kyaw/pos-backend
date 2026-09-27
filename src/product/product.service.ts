@@ -502,7 +502,7 @@ export class ProductService {
         }
         return created;
       });
-
+      await this.invalidateProductCache(companyId);
       return {
         success: true,
         message: 'Inventory record created successfully',
