@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -212,6 +213,180 @@ export class ProductService {
     };
   }
 
+  // FIND ALL + SEARCH
+  // async findAll(
+  //   userId: number,
+  //   companyId: number,
+  //   page = 1,
+  //   limit = 10,
+  //   search?: string,
+  //   categoryId?: number,
+  //   brandId?: number,
+  // ) {
+  //   const skip = (page - 1) * limit;
+  //   type ProductWithCategory = Prisma.ProductGetPayload<{
+  //     include: {
+  //       category: true;
+  //     };
+  //   }>;
+  //   console.log('search ', search, page, limit, categoryId);
+  //   let products: ProductWithCategory[] = [];
+  //   let total = 0;
+  //   const where: Prisma.ProductWhereInput = {
+  //     companyId,
+  //     ...(categoryId && { categoryId: Number(categoryId) }),
+  //     ...(brandId && { brandId: Number(brandId) }),
+  //     isDeleted: false,
+  //     ...(search && {
+  //       OR: [
+  //         { name: { contains: search, mode: 'insensitive' } },
+  //         { code: { contains: search, mode: 'insensitive' } },
+  //         { barcode: { contains: search, mode: 'insensitive' } },
+  //       ],
+  //     }),
+  //   };
+
+  //   // ================================================
+  //   //categoryId
+  //   // ================================================
+  //   const { redisKey } = await this.getProductCacheKey({
+  //     companyId,
+  //     skip,
+  //     limit,
+  //     categoryId,
+  //     brandId,
+  //   });
+  //   const cachedData = await this.redis.get(redisKey);
+  //   console.log('redis key', redisKey);
+
+  //   // If search → return all matches (no pagination)
+  //   if (search) {
+  //     const [searchProducts, searchTotal] = await Promise.all([
+  //       this.prisma.product.findMany({
+  //         where,
+  //         include: { category: true, brand: true },
+  //         orderBy: { name: 'asc' },
+  //         skip,
+  //         take: limit,
+  //       }),
+  //       this.prisma.product.count({ where }),
+  //     ]);
+
+  //     console.log('product search is ', searchProducts);
+
+  //     return {
+  //       success: true,
+  //       message: 'Products fetched successfully',
+  //       data: searchProducts,
+  //       meta: {
+  //         page,
+  //         limit,
+  //         total: searchTotal,
+  //         totalPages: Math.ceil(searchTotal / limit),
+  //         isSearch: true,
+  //       },
+  //     };
+  //   }
+  //   console.log('where', where);
+  //   // if (!cachedData) {
+  //   const [data, sum] = await Promise.all([
+  //     this.prisma.product.findMany({
+  //       where,
+  //       include: {
+  //         category: true,
+  //         brand: true,
+  //       },
+  //       orderBy: { name: 'asc' },
+  //       skip,
+  //       take: limit,
+  //     }),
+  //     this.prisma.product.count({ where }),
+  //   ]);
+  //   const cacheObject = { data, sum };
+
+  //   const ttl = this.configService.get<number>('REDIS_TTL')!;
+
+  //   products = data;
+  //   total = sum;
+
+  //   // await this.setProductCache({
+  //   //   companyId,
+  //   //   redisKey,
+  //   //   data,
+  //   //   cacheObject,
+  //   //   ttl,
+  //   // });
+  //   // }
+  //   // else {
+  //   //   this.logger.log('Cache Exist');
+
+  //   //   products = cachedData['data'];
+  //   //   total = cachedData['sum'];
+  //   // }
+  //   console.log('product are ', skip, limit);
+  //   return {
+  //     success: true,
+  //     message: 'Products fetched successfully',
+  //     data: products,
+  //     meta: {
+  //       page,
+  //       limit,
+  //       total,
+  //       totalPages: Math.ceil(total / limit),
+  //     },
+  //   };
+  // }
+  ///product with no barcode
+  // LOW STOCK DATA + SEARCH
+  async getProductsByNoBarcode(
+    userId: number,
+    companyId: number,
+    page = 1,
+    limit = 10,
+    search?: string,
+  ) {
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.ProductWhereInput = {
+      companyId,
+      // "barcode"
+      // (product.barcode: String?)
+      // empty string
+      OR: [{ barcode: null }, { barcode: '' }],
+      ...(search
+        ? {
+            name: {
+              contains: search,
+              mode: 'insensitive',
+            },
+          }
+        : {}),
+    };
+
+    const [products, total] = await this.prisma.$transaction([
+      this.prisma.product.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+
+    return {
+      success: true,
+      message: 'Products with no barcode fetched successfully',
+      data: products,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        isSearch: !!search,
+      },
+    };
+  }
+
   // LOW STOCK DATA + SEARCH
   async getLowStockProducts(
     userId: number,
@@ -408,6 +583,56 @@ export class ProductService {
         data: {
           title: `Product Updated: ${user?.email ?? 'Unknown'}`,
           description,
+          userId: Number(userId),
+        },
+      });
+
+      return data;
+    });
+    await this.invalidateProductCache(companyId);
+    // await this.patchProductInCache({
+    //   companyId: oldData.data.companyId,
+    //   updatedProduct: updated,
+    // });
+
+    return {
+      success: true,
+      message: 'Product updated successfully',
+      data: updated,
+    };
+  }
+
+  // UPDATE Bar Code
+  async updateBarCode(
+    id: number,
+    userId: number,
+    companyId: number,
+    barCode: string,
+  ) {
+    const oldData = await this.findOne(id, userId);
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const existBarcode = await tx.product.findFirst({
+        where: {
+          barcode: barCode,
+        },
+      });
+      if (existBarcode) throw new ConflictException('Barcode already exists');
+      const data = await tx.product.update({
+        where: { id },
+        data: {
+          barcode: barCode,
+        },
+      });
+      const user = await tx.user.findFirst({
+        where: {
+          id: Number(userId),
+        },
+      });
+      await tx.auditLogs.create({
+        data: {
+          title: `Product Updated: ${user?.email ?? 'Unknown'}`,
+          description: 'Barcode for ' + data.name + ' updated.',
           userId: Number(userId),
         },
       });

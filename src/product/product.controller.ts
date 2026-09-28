@@ -88,6 +88,40 @@ export class ProductController {
     );
   }
 
+  @Get('no-barcode/get')
+  findAllNobarcodeData(
+    @Req() req,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+    @Query('search') search?: string,
+  ) {
+    const { id: userId, companyId } = req.user;
+
+    return this.productService.getProductsByNoBarcode(
+      userId,
+      companyId,
+      Number(page),
+      Number(limit),
+      search,
+    );
+  }
+
+  @Patch(':id/bar-code/update')
+  updateBarcodeData(
+    @Req() req,
+    @Param('id') id: string,
+    @Body('barCode') barCode: string,
+  ) {
+    const { id: userId, companyId } = req.user;
+
+    return this.productService.updateBarCode(
+      Number(id),
+      userId,
+      companyId,
+      barCode,
+    );
+  }
+
   @Get('low-stocks/all')
   findLowStock(
     @Req() req,
