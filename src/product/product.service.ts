@@ -91,129 +91,6 @@ export class ProductService {
   }
 
   // FIND ALL + SEARCH
-  async findAll(
-    userId: number,
-    companyId: number,
-    page = 1,
-    limit = 10,
-    search?: string,
-    categoryId?: number,
-    brandId?: number,
-  ) {
-    const skip = (page - 1) * limit;
-    type ProductWithCategory = Prisma.ProductGetPayload<{
-      include: {
-        category: true;
-      };
-    }>;
-    console.log('search ', search, page, limit, categoryId);
-    let products: ProductWithCategory[] = [];
-    let total = 0;
-    const where: Prisma.ProductWhereInput = {
-      companyId,
-      ...(categoryId && { categoryId: Number(categoryId) }),
-      ...(brandId && { brandId: Number(brandId) }),
-      isDeleted: false,
-      ...(search && {
-        OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { code: { contains: search, mode: 'insensitive' } },
-          { barcode: { contains: search, mode: 'insensitive' } },
-        ],
-      }),
-    };
-
-    // ================================================
-    //categoryId
-    // ================================================
-    const { redisKey } = await this.getProductCacheKey({
-      companyId,
-      skip,
-      limit,
-      categoryId,
-      brandId,
-    });
-    const cachedData = await this.redis.get(redisKey);
-    console.log('redis key', redisKey);
-
-    // If search → return all matches (no pagination)
-    if (search) {
-      const [searchProducts, searchTotal] = await Promise.all([
-        this.prisma.product.findMany({
-          where,
-          include: { category: true, brand: true },
-          orderBy: { name: 'asc' },
-          skip,
-          take: limit,
-        }),
-        this.prisma.product.count({ where }),
-      ]);
-
-      console.log('product search is ', searchProducts);
-
-      return {
-        success: true,
-        message: 'Products fetched successfully',
-        data: searchProducts,
-        meta: {
-          page,
-          limit,
-          total: searchTotal,
-          totalPages: Math.ceil(searchTotal / limit),
-          isSearch: true,
-        },
-      };
-    }
-    console.log('where', where);
-    if (!cachedData) {
-      const [data, sum] = await Promise.all([
-        this.prisma.product.findMany({
-          where,
-          include: {
-            category: true,
-            brand: true,
-          },
-          orderBy: { name: 'asc' },
-          skip,
-          take: limit,
-        }),
-        this.prisma.product.count({ where }),
-      ]);
-      const cacheObject = { data, sum };
-
-      const ttl = this.configService.get<number>('REDIS_TTL')!;
-
-      products = data;
-      total = sum;
-
-      await this.setProductCache({
-        companyId,
-        redisKey,
-        data,
-        cacheObject,
-        ttl,
-      });
-    } else {
-      this.logger.log('Cache Exist');
-
-      products = cachedData['data'];
-      total = cachedData['sum'];
-    }
-    console.log('product are ', skip, limit);
-    return {
-      success: true,
-      message: 'Products fetched successfully',
-      data: products,
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
-  }
-
-  // FIND ALL + SEARCH
   // async findAll(
   //   userId: number,
   //   companyId: number,
@@ -288,41 +165,40 @@ export class ProductService {
   //     };
   //   }
   //   console.log('where', where);
-  //   // if (!cachedData) {
-  //   const [data, sum] = await Promise.all([
-  //     this.prisma.product.findMany({
-  //       where,
-  //       include: {
-  //         category: true,
-  //         brand: true,
-  //       },
-  //       orderBy: { name: 'asc' },
-  //       skip,
-  //       take: limit,
-  //     }),
-  //     this.prisma.product.count({ where }),
-  //   ]);
-  //   const cacheObject = { data, sum };
+  //   if (!cachedData) {
+  //     const [data, sum] = await Promise.all([
+  //       this.prisma.product.findMany({
+  //         where,
+  //         include: {
+  //           category: true,
+  //           brand: true,
+  //         },
+  //         orderBy: { name: 'asc' },
+  //         skip,
+  //         take: limit,
+  //       }),
+  //       this.prisma.product.count({ where }),
+  //     ]);
+  //     const cacheObject = { data, sum };
 
-  //   const ttl = this.configService.get<number>('REDIS_TTL')!;
+  //     const ttl = this.configService.get<number>('REDIS_TTL')!;
 
-  //   products = data;
-  //   total = sum;
+  //     products = data;
+  //     total = sum;
 
-  //   // await this.setProductCache({
-  //   //   companyId,
-  //   //   redisKey,
-  //   //   data,
-  //   //   cacheObject,
-  //   //   ttl,
-  //   // });
-  //   // }
-  //   // else {
-  //   //   this.logger.log('Cache Exist');
+  //     await this.setProductCache({
+  //       companyId,
+  //       redisKey,
+  //       data,
+  //       cacheObject,
+  //       ttl,
+  //     });
+  //   } else {
+  //     this.logger.log('Cache Exist');
 
-  //   //   products = cachedData['data'];
-  //   //   total = cachedData['sum'];
-  //   // }
+  //     products = cachedData['data'];
+  //     total = cachedData['sum'];
+  //   }
   //   console.log('product are ', skip, limit);
   //   return {
   //     success: true,
@@ -336,6 +212,130 @@ export class ProductService {
   //     },
   //   };
   // }
+
+  // FIND ALL + SEARCH
+  async findAll(
+    userId: number,
+    companyId: number,
+    page = 1,
+    limit = 10,
+    search?: string,
+    categoryId?: number,
+    brandId?: number,
+  ) {
+    const skip = (page - 1) * limit;
+    type ProductWithCategory = Prisma.ProductGetPayload<{
+      include: {
+        category: true;
+      };
+    }>;
+    console.log('search ', search, page, limit, categoryId);
+    let products: ProductWithCategory[] = [];
+    let total = 0;
+    const where: Prisma.ProductWhereInput = {
+      companyId,
+      ...(categoryId && { categoryId: Number(categoryId) }),
+      ...(brandId && { brandId: Number(brandId) }),
+      isDeleted: false,
+      ...(search && {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { code: { contains: search, mode: 'insensitive' } },
+          { barcode: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+    };
+
+    // ================================================
+    //categoryId
+    // ================================================
+    const { redisKey } = await this.getProductCacheKey({
+      companyId,
+      skip,
+      limit,
+      categoryId,
+      brandId,
+    });
+    const cachedData = await this.redis.get(redisKey);
+    console.log('redis key', redisKey);
+
+    // If search → return all matches (no pagination)
+    if (search) {
+      const [searchProducts, searchTotal] = await Promise.all([
+        this.prisma.product.findMany({
+          where,
+          include: { category: true, brand: true },
+          orderBy: { name: 'asc' },
+          skip,
+          take: limit,
+        }),
+        this.prisma.product.count({ where }),
+      ]);
+
+      console.log('product search is ', searchProducts);
+
+      return {
+        success: true,
+        message: 'Products fetched successfully',
+        data: searchProducts,
+        meta: {
+          page,
+          limit,
+          total: searchTotal,
+          totalPages: Math.ceil(searchTotal / limit),
+          isSearch: true,
+        },
+      };
+    }
+    console.log('where', where);
+    // if (!cachedData) {
+    const [data, sum] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        include: {
+          category: true,
+          brand: true,
+        },
+        orderBy: { name: 'asc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+    const cacheObject = { data, sum };
+
+    const ttl = this.configService.get<number>('REDIS_TTL')!;
+
+    products = data;
+    total = sum;
+
+    // await this.setProductCache({
+    //   companyId,
+    //   redisKey,
+    //   data,
+    //   cacheObject,
+    //   ttl,
+    // });
+    // }
+    // else {
+    //   this.logger.log('Cache Exist');
+
+    //   products = cachedData['data'];
+    //   total = cachedData['sum'];
+    // }
+    console.log('product are ', skip, limit);
+    return {
+      success: true,
+      message: 'Products fetched successfully',
+      data: products,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
   ///product with no barcode
   // LOW STOCK DATA + SEARCH
   async getProductsByNoBarcode(

@@ -11,6 +11,8 @@ async function bootstrap() {
     queue = 'product_queue';
   } else if (workerType === 'notification') {
     queue = 'notification_queue';
+  } else if (workerType === 'user') {
+    queue = 'user_queue';
   } else {
     throw new Error('WORKER_TYPE must be "product" or "notification"');
   }
