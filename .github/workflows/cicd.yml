@@ -96,6 +96,21 @@ jobs:
           docker push \
             ${{ secrets.DOCKER_USERNAME }}/pos-product-worker:latest
 
+            # Build product worker image
+      # user worker
+      - name: Build Docker image for user worker
+        run: |
+          docker build \
+            -f src/notification-worker/Dockerfile \
+            -t ${{ secrets.DOCKER_USERNAME }}/pos-user-worker:latest \
+            .
+
+      # Push product worker image
+      - name: Push Docker image for product worker
+        run: |
+          docker push \
+            ${{ secrets.DOCKER_USERNAME }}/pos-user-worker:latest
+
       # ==================================================
       # COPY DOCKER COMPOSE
       # ==================================================
