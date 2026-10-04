@@ -110,7 +110,6 @@ jobs:
         run: |
           docker push \
             ${{ secrets.DOCKER_USERNAME }}/pos-user-worker:latest
-
       # ==================================================
       # COPY DOCKER COMPOSE
       # ==================================================
