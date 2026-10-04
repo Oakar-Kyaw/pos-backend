@@ -39,6 +39,18 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
           queueOptions: { durable: true },
         },
       },
+      //for api server
+      {
+        name: 'API_SERVICE',
+        transport: Transport.RMQ,
+        options: {
+          urls: [
+            process.env.RABBITMQ_URL ?? 'amqp://guest:guest@rabbitmq:5672',
+          ],
+          queue: 'api_queue',
+          queueOptions: { durable: true },
+        },
+      },
     ]),
   ],
   exports: [ClientsModule],

@@ -10,7 +10,7 @@ export class ProductWorkerService {
   // private r2: S3Client;
   constructor(
     private readonly prisma: PrismaService,
-    @Inject('PRODUCT_WORKER_SERVICE')
+    @Inject('API_SERVICE')
     private readonly productWorkerClient: ClientProxy,
   ) {
     // this.r2 = new S3Client({

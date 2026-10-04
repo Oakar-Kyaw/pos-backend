@@ -10,7 +10,8 @@ export class CustomerWorkerService {
   // private r2: S3Client;
   constructor(
     private readonly prisma: PrismaService,
-    @Inject('USER_WORKER_SERVICE')
+    //if you want to submit to api
+    @Inject('API_SERVICE')
     private readonly userWorkerClient: ClientProxy,
   ) {}
   chuckArray<T>(array: T[], chunkSize: number): T[][] {
