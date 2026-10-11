@@ -119,7 +119,42 @@ export class PurchaseService {
             `Purchase amount mismatch. Purchase total: ${total.toString()}, Payment total: ${paymentTotal.toString()}`,
           );
         }
+        ///if status is success add  stock and reduce balance
+        if (dto.status === 'SUCCESS') {
+          const values = Prisma.join(
+            dto.purchaseItems.map(
+              (pr) =>
+                Prisma.sql`(${pr.productId}::int, ${pr.quantity}::int, ${pr.price}::int, ${pr.sellingPrice}::int)`,
+            ),
+            ',',
+          );
+          await tx.$executeRaw`
+            UPDATE "Product" AS p
+            SET
+              "stock" = p."stock" + v.qty,
+              "costPrice" = v.price,
+              "price" = v.sellingPrice,
+              "avgCostPrice" = (
+                (COALESCE(p."avgCostPrice", p."costPrice") * p."stock") + (v.price * v.qty)
+              ) / (p."stock" + v.qty)
+            FROM (VALUES ${values}) AS v(id, qty, price, sellingPrice)
+            WHERE p.id = v.id
+          `;
+          //subtract amount in balance
+          const paymentValues: Prisma.Sql[] = dto.purchasePayment.map(
+            (payment) =>
+              Prisma.sql`(${payment.paymentDataId}, ${payment.amount})`,
+          );
 
+          await tx.$executeRaw`
+               UPDATE "PaymentData" As pd
+               SET balance = pd.balance - v.amount::numeric
+               FROM (
+                VALUES ${Prisma.join(paymentValues)}
+               ) As v(id, amount)
+               WHERE pd.id = v.id::integer
+              `;
+        }
         // ========================================================
         // CREATE PURCHASE
         // ========================================================
@@ -160,6 +195,7 @@ export class PurchaseService {
                 productId: item.productId!,
                 quantity: item.quantity,
                 price: new Prisma.Decimal(item.price),
+                sellingPrice: new Prisma.Decimal(item.sellingPrice),
               })),
             },
 
@@ -704,6 +740,43 @@ export class PurchaseService {
           });
         }
 
+        ///if status is success add  stock and reduce balance
+        if (dto.status === 'SUCCESS') {
+          const values = Prisma.join(
+            dto.purchaseItems!.map(
+              (pr) =>
+                Prisma.sql`(${pr.productId}::int, ${pr.quantity}::int, ${pr.price}::int, ${pr.sellingPrice}::int)`,
+            ),
+            ',',
+          );
+          await tx.$executeRaw`
+            UPDATE "Product" AS p
+            SET
+              "stock" = p."stock" + v.qty,
+              "costPrice" = v.price,
+              "price" = v.sellingPrice,
+              "avgCostPrice" = (
+                (COALESCE(p."avgCostPrice", p."costPrice") * p."stock") + (v.price * v.qty)
+              ) / (p."stock" + v.qty)
+            FROM (VALUES ${values}) AS v(id, qty, price, sellingPrice)
+            WHERE p.id = v.id
+          `;
+          //subtract amount in balance
+          const paymentValues: Prisma.Sql[] = dto.purchasePayment!.map(
+            (payment) =>
+              Prisma.sql`(${payment.paymentDataId}, ${payment.amount})`,
+          );
+
+          await tx.$executeRaw`
+               UPDATE "PaymentData" As pd
+               SET balance = pd.balance - v.amount::numeric
+               FROM (
+                VALUES ${Prisma.join(paymentValues)}
+               ) As v(id, amount)
+               WHERE pd.id = v.id::integer
+              `;
+        }
+
         // ========================================================
         // UPDATE PURCHASE
         // ========================================================
@@ -751,6 +824,7 @@ export class PurchaseService {
                   productId: item.productId!,
                   quantity: item.quantity,
                   price: new Prisma.Decimal(item.price),
+                  sellingPrice: new Prisma.Decimal(item.sellingPrice),
                 })),
               },
             }),
@@ -966,18 +1040,31 @@ export class PurchaseService {
         const values = Prisma.join(
           purchase.purchaseItems.map(
             (pr) =>
-              Prisma.sql`(${pr.productId}::int, ${pr.quantity}::int, ${pr.price}::int)`,
+              Prisma.sql`(${pr.productId}::int, ${pr.quantity}::int, ${pr.price}::int, ${pr.sellingPrice}::int)`,
           ),
           ',',
         );
 
+        // await tx.$executeRaw`
+        //   UPDATE "Product" AS p
+        //   SET
+        //     "stock" = p."stock" + v.qty,
+        //     "costPrice" = v.price,
+        //     "price": v.sellingPrice,
+        //     "avgCostPrice" = ((p."price" * p."stock") + (v.price * v.qty)) / (p.stock + v.qty)
+        //   FROM (VALUES ${values}) AS v(id, qty, price, sellingPrice)
+        //   WHERE p.id = v.id
+        // `;
         await tx.$executeRaw`
           UPDATE "Product" AS p
           SET
             "stock" = p."stock" + v.qty,
             "costPrice" = v.price,
-            "avgCostPrice" = ((p."price" * p."stock") + (v.price * v.qty)) / (p.stock + v.qty)
-          FROM (VALUES ${values}) AS v(id, qty, price)
+            "price" = v.sellingPrice,
+            "avgCostPrice" = (
+              (COALESCE(p."avgCostPrice", p."costPrice") * p."stock") + (v.price * v.qty)
+            ) / (p."stock" + v.qty)
+          FROM (VALUES ${values}) AS v(id, qty, price, sellingPrice)
           WHERE p.id = v.id
         `;
         const data = await tx.purchase.update({

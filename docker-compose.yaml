@@ -38,6 +38,19 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  user-worker:
+    image: ${DOCKER_USERNAME}/pos-user-worker:latest
+    restart: unless-stopped
+    environment:
+      WORKER_TYPE: user
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
   redis:
     image: redis:7.4-alpine
     restart: unless-stopped
