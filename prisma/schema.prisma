@@ -1082,6 +1082,10 @@ model User {
   @@index([branchId])
 }
 
+enum PaidStatus {
+  PAID 
+  UNPAID
+}
 model Voucher {
   id          Int    @id @default(autoincrement())
   voucherCode String @unique
@@ -1101,6 +1105,7 @@ model Voucher {
   discountAmount Decimal @default(0.00) @db.Decimal(12, 2)
   packagingFee Decimal @default(0.00) @db.Decimal(12, 2)
   existDebt     Boolean @default(false)
+  paidStatus    PaidStatus  @default(UNPAID)
 
   note          String?
   isDeleted     Boolean @default(false)

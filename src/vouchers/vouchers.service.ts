@@ -7,7 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from 'prisma/prisma.service';
-import { Prisma, Role } from '@prisma/client';
+import { PaidStatus, Prisma, Role } from '@prisma/client';
 import { CreateVoucherDto } from './dto/create-voucher.dto';
 import { UpdateVoucherDto } from './dto/update-voucher.dto';
 import { FileUpload } from 'src/utils/file-upload';
@@ -172,6 +172,7 @@ export class VouchersService {
           total: totalWithTaxAndDiscount,
           discountAmount,
           discountPercent,
+          paidStatus: dto.paidStatus ?? PaidStatus.UNPAID,
           debt,
           existDebt: debt > 0,
           userId,
@@ -579,6 +580,31 @@ export class VouchersService {
       success: true,
       message: 'Voucher deleted successfully',
       data: deleted,
+    };
+  }
+
+  /// update paid status
+  async updatePaidStatus(id: number, userId: number, companyId: number) {
+    const data = await this.prisma.$transaction(async (tx) => {
+      const exist = await tx.voucher.findUnique({
+        where: {
+          id: Number(id),
+        },
+      });
+      if (!exist) throw new NotFoundException('Voucher Not found');
+      const updatedData = await tx.voucher.update({
+        where: {
+          id: Number(id),
+        },
+        data: {
+          paidStatus: PaidStatus.PAID,
+        },
+      });
+      return updatedData;
+    });
+    return {
+      success: true,
+      message: 'Status Updated',
     };
   }
   private async generateVoucherCode({

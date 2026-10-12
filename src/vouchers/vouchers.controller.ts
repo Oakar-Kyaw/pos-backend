@@ -98,6 +98,14 @@ export class VouchersController {
     );
   }
 
+  // ================= Update Paid Status=================
+  @Patch(':id/status/change')
+  updatePaidStatus(@Req() req, @Param('id') id: string) {
+    const { id: userId, companyId } = req.user;
+
+    return this.vouchersService.updatePaidStatus(+id, userId, companyId);
+  }
+
   // ================= DELETE =================
   @Delete(':id')
   remove(@Req() req, @Param('id') id: string) {

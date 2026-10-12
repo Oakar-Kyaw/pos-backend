@@ -7,9 +7,10 @@ import {
   ValidateNested,
   IsArray,
   Min,
+  IsEnum,
 } from 'class-validator';
 import { CreateVoucherItemDto } from './create-voucher-item.dto';
-import { VoucherType } from '@prisma/client';
+import { PaidStatus, VoucherType } from '@prisma/client';
 import { CreatePaymentDto } from 'src/payment/dto/create-payment.dto';
 import { VoucherPaymentDto } from './payment-voucher.dto';
 import { VoucherCustomerDto } from './voucher-customer.dto';
@@ -35,6 +36,15 @@ export class CreateVoucherDto {
   @Type(() => Number)
   @Min(0)
   readonly subTotal?: number;
+
+  // status for paid
+  @Expose()
+  @IsOptional()
+  @IsEnum(PaidStatus)
+  @Transform(({ value }) =>
+    value ? String(value).trim().toUpperCase() : 'UNPAID',
+  )
+  readonly paidStatus?: PaidStatus;
 
   @Expose()
   @IsOptional()
