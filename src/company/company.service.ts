@@ -7,7 +7,7 @@ import { PrismaService } from 'prisma/prisma.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { hashedPassword } from 'src/utils/hash-password';
-import { AccountType, Role } from '@prisma/client';
+import { AccountType, Prisma, Role } from '@prisma/client';
 
 @Injectable()
 export class CompanyService {
@@ -15,9 +15,8 @@ export class CompanyService {
 
   // -------- Create Company --------
   async create(createCompanyDto: CreateCompanyDto) {
-    const { email, name, phone } = createCompanyDto;
+    const { email, name, phone, password, branch, ...rest } = createCompanyDto;
 
-    // Check if email, name, or phone already exists
     const existingCompany = await this.prisma.company.findFirst({
       where: {
         OR: [
@@ -26,6 +25,7 @@ export class CompanyService {
           ...(phone ? [{ phone }] : []),
         ],
       },
+      select: { id: true },
     });
 
     if (existingCompany) {
@@ -34,49 +34,93 @@ export class CompanyService {
       );
     }
 
-    const { password, ...data } = createCompanyDto;
-    const hashPassword = await hashedPassword(password);
+    // Hash everything in parallel BEFORE opening the transaction
+    const [hashPassword, branchUsers] = await Promise.all([
+      hashedPassword(password),
+      Promise.all(
+        (branch ?? []).map(async (b) => ({
+          name: b.name,
+          email: b.email,
+          hashed: await hashedPassword(b.password),
+        })),
+      ),
+    ]);
 
-    const result = await this.prisma.$transaction(async (tx) => {
-      // 5 day subscription
-      const company = await tx.company.create({
-        data: {
-          ...data,
-          subscriptionEndDate: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
-        },
+    try {
+      const result = await this.prisma.$transaction(async (tx) => {
+        const company = await tx.company.create({
+          data: {
+            email,
+            name,
+            phone,
+            ...rest,
+            subscriptionEndDate: new Date(
+              Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days
+            ),
+          },
+        });
+
+        if (branchUsers.length > 0) {
+          await tx.branch.createMany({
+            data: branchUsers.map((b) => ({
+              name: b.name,
+              email: b.email,
+              companyId: company.id,
+            })),
+          });
+
+          await tx.user.createMany({
+            data: branchUsers.map((b) => ({
+              email: b.email,
+              companyId: company.id,
+              password: b.hashed,
+              role: Role.ADMIN, // ← သင့် schema ရဲ့ branch role နဲ့ ညှိပါ
+            })),
+          });
+        }
+
+        const user = await tx.user.create({
+          data: {
+            email: company.email,
+            companyId: company.id,
+            password: hashPassword,
+            phone: company.phone,
+            role: Role.ADMIN,
+          },
+        });
+
+        const cashAccount = await tx.paymentData.create({
+          data: {
+            accountName: 'CASH',
+            accountType: AccountType.CASH,
+            userId: Number(user.id),
+            companyId: Number(company.id),
+          },
+        });
+
+        return { company, user, cashAccount };
       });
 
-      const user = await tx.user.create({
-        data: {
-          email: company.email,
-          companyId: company.id,
-          password: hashPassword,
-          phone: company.phone,
-          role: Role.ADMIN,
-        },
-      });
+      this.sendTelegramNotification(result.company).catch((err) =>
+        console.error('Telegram notification error:', err.message),
+      );
 
-      const cashAccount = await tx.paymentData.create({
-        data: {
-          accountName: `CASH`,
-          accountType: AccountType.CASH,
-          userId: Number(user.id),
-          companyId: Number(company.id),
-        },
-      });
-
-      return { company, user, cashAccount };
-    });
-    // Serverless ဆိုရင် response ပြန်ပို့ပြီးတာနဲ့ process ကို kill/freeze လုပ်ပစ်တတ်လို့ await မထားတဲ့ background call (Telegram) က ပြီးအောင် မပြေးရသေးဘဲ silent ဖြစ်နိုင်ပါတယ် — ဒါပေမယ့် Lightsail/EC2 လို traditional server မှာတော့ ဒီပြဿနာ မရှိပါဘူး။
-    this.sendTelegramNotification(result.company).catch((err) =>
-      console.error('Telegram notification error:', err.message),
-    );
-
-    return {
-      success: true,
-      message: 'COMPANY CREATED',
-      data: result.company,
-    };
+      return {
+        success: true,
+        message: 'COMPANY CREATED',
+        data: result.company,
+      };
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'Company with this email, name, or phone already exists',
+        );
+      }
+      throw e;
+    }
   }
 
   private async sendTelegramNotification(company: any) {

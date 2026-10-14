@@ -1,5 +1,6 @@
 import { Expose, Transform } from 'class-transformer';
 import {
+  IsArray,
   IsBoolean,
   IsEmail,
   IsEnum,
@@ -8,6 +9,7 @@ import {
   IsString,
 } from 'class-validator';
 import { CompanyType } from '@prisma/client'; // Prisma-generated enum
+import { BranchDto } from './branch.dto';
 
 export class CreateCompanyDto {
   @Expose()
@@ -33,6 +35,11 @@ export class CreateCompanyDto {
   @IsEmail()
   @Transform(({ value }) => (value ? String(value).trim().toLowerCase() : null))
   readonly email: string;
+
+  @Expose()
+  @IsOptional()
+  @IsArray()
+  readonly branch?: BranchDto[];
 
   @Expose()
   @IsOptional()

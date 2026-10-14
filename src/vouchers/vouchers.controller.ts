@@ -105,7 +105,6 @@ export class VouchersController {
 
     return this.vouchersService.updatePaidStatus(+id, userId, companyId);
   }
-
   // ================= DELETE =================
   @Delete(':id')
   remove(@Req() req, @Param('id') id: string) {
