@@ -172,7 +172,7 @@ export class VouchersService {
           total: totalWithTaxAndDiscount,
           discountAmount,
           discountPercent,
-          paidStatus: dto.paidStatus ?? PaidStatus.UNPAID,
+          paidStatus: dto.paidStatus ?? PaidStatus.PAID,
           debt,
           existDebt: debt > 0,
           userId,
